@@ -33,9 +33,13 @@ pipeline {
 
     post {
         always {
-            node {
-                archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
-                junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+            script {
+                try {
+                    archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
+                    junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+                } catch (exception) {
+                    echo "Skipping post-build report publishing because no workspace context is available: ${exception.message}"
+                }
             }
         }
     }
