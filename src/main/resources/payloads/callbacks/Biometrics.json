@@ -1,0 +1,30 @@
+{
+  "clientIP": "355696058970027",
+  "agentIdNumber": "1048425183",
+  "agentIdType": "1",
+  "branchName": "1",
+  "sourceType": "6",
+  "customerIdNumber": "2101280072",
+  "customerIdType": "2",
+  "nationality": "111",
+  "transactionId": "DIG_Event_SIT_6545CD5539E3445E887798A1AF818D84",
+  "msisdn": "966520114902",
+  "exceptionFlag": "11",
+  "iamAppToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJOYWZhdGggQXBwIFRlc3QiLCJhdWQiOiJTVENfU0lNIiwiaWF0IjoxNjcyNzUwNzMwLCJuYmYiOjE2NzI3NTA3MzAsImV4cCI6MTY3Mjc1MTMzMCwic3RhdHVzIjoiUkVKR",
+  "nationalAddress": {
+    "zipCode": "68202",
+    "buildingNumber": "3389",
+    "streetName": "Street Automated",
+    "district": "District Automated",
+    "city": "City Automated",
+    "unitNumber": "3389",
+    "additionalNumber": "1234",
+    "region": "Hi"
+  },
+  "serviceAttributeList": [
+    {
+      "iccid": "899660113009704188",
+      "imsi": "422011309704188"
+    }
+  ]
+}

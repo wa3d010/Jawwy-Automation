@@ -1,0 +1,54 @@
+name: Jawwy Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: Environment to execute against
+        required: true
+        default: sit
+        type: choice
+        options:
+          - local
+          - sit
+          - uat
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      JAWWY_ENV: ${{ inputs.target_env || 'sit' }}
+      JAWWY_API_BASE_URL: ${{ secrets.JAWWY_API_BASE_URL }}
+      JAWWY_UI_BASE_URL: ${{ secrets.JAWWY_UI_BASE_URL }}
+      JAWWY_UI_USERNAME: ${{ secrets.JAWWY_UI_USERNAME }}
+      JAWWY_UI_PASSWORD: ${{ secrets.JAWWY_UI_PASSWORD }}
+      JAWWY_DB_URL: ${{ secrets.JAWWY_DB_URL }}
+      JAWWY_DB_USER: ${{ secrets.JAWWY_DB_USER }}
+      JAWWY_DB_PASSWORD: ${{ secrets.JAWWY_DB_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run automated suite
+        run: mvn -B clean test -Denv=${JAWWY_ENV}
+
+      - name: Archive reports and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jawwy-automation-artifacts
+          path: |
+            target/surefire-reports
+            allure-results
+            logs

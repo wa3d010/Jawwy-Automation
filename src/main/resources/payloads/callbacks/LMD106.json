@@ -1,0 +1,36 @@
+{
+  "lmdStatus": "Delivery Order",
+  "notification": "106",
+  "orderStatus": [
+    {
+      "terminalId": "8125687701922191",
+      "amount": "4.5",
+      "shippingNumber": "9232",
+      "approvalCode": "373365",
+      "transaction": 108212000246,
+      "nationality": null,
+      "customerIdType": null,
+      "pickupLocation": "LMD01",
+      "agentCode": null,
+      "agentName": null,
+      "agentNationalId": null,
+      "receivedBy": "29590",
+      "userId": "29590",
+      "timeStamp": "2022-05-17 10:11:27",
+      "lmdName": null,
+      "lmdCollectionPointAddress": null,
+      "lmdPhoneNumber": null,
+      "activationType": "Self Activation",
+      "locationId": null,
+      "locationName": "CHANNELS-LMD-RUH",
+      "itemId": null,
+      "nationalAddressRegion": null,
+      "nationalAddressCity": null,
+      "nationalAddressDistrict": null,
+      "nationalAddressBuildingNo": null,
+      "nationalAddressStreetname": null,
+      "nationalAddressZipcode": null,
+      "nationalAddressAdditionalnumber": null
+    }
+  ]
+}

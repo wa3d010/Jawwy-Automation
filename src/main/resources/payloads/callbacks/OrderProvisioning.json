@@ -1,0 +1,12 @@
+{
+  "accountId": "0-1-5-31523",
+  "subscriptionId": "0-1-5-31609",
+  "deviceId": "",
+  "isAdmin": true,
+  "notifyUserId": "ULVGFw6sRbuWvAjWRc5RSw",
+  "customerId": "820ce288-ccde-11ef-8c8f-005056b12c94",
+  "isRegistrationMSISDN": true,
+  "selectedAccountOption": "existing",
+  "firstLoginTime": "{{requestStartDate}}",
+  "firstAccountMSISDN": "966520114859"
+}
