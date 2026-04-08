@@ -33,8 +33,10 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
-            junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+            node {
+                archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
+                junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+            }
         }
     }
 }
