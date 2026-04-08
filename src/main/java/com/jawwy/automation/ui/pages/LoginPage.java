@@ -1,7 +1,6 @@
 package com.jawwy.automation.ui.pages;
 
 import com.jawwy.automation.config.FrameworkConfig;
-import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
 
@@ -28,21 +27,12 @@ public class LoginPage {
     }
 
     private void waitForPostLoginLanding() {
-        Locator usernameField = page.getByLabel("Username");
-        try {
-            usernameField.waitFor(new Locator.WaitForOptions()
-                    .setState(Locator.State.HIDDEN)
-                    .setTimeout(LOGIN_TRANSITION_TIMEOUT_MS));
-        } catch (PlaywrightException ignored) {
-            // Some environments keep the login form in the DOM after navigation.
-        }
-
         if (page.url().contains("/login")) {
             try {
                 page.waitForURL("**/worklistManagement", new Page.WaitForURLOptions()
                         .setTimeout(LOGIN_TRANSITION_TIMEOUT_MS));
             } catch (PlaywrightException ignored) {
-                // Fallback to element-based checks below.
+                // Some environments stay on a login-looking URL but still navigate successfully afterward.
             }
         }
     }
