@@ -34,7 +34,6 @@ public class LoginPage {
         page.getByLabel("Username").fill(config.uiUsername());
         page.getByLabel("Password").fill(config.uiPassword());
         page.keyboard().press("Enter");
-        page.waitForTimeout(config.uiPostLoginDelayMs());
         waitForPostLoginLanding();
     }
 

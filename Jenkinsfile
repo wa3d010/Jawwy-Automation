@@ -26,7 +26,7 @@ pipeline {
 
         stage('Run SP Batch Flow') {
             steps {
-                bat 'mvn clean test -Denv=%TARGET_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dbatch.mode=true'
+                bat 'mvn -q clean test -Denv=%TARGET_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dbatch.mode=true'
             }
         }
     }

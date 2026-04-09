@@ -6,6 +6,8 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.SkipException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
@@ -27,6 +29,13 @@ public class SpBatchTest extends BaseEocTest {
     private static final Path SUMMARY_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.md");
     private static final Path CSV_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.csv");
 
+    @BeforeClass(alwaysRun = true)
+    public void skipOutsideBatchMode() {
+        if (!Boolean.parseBoolean(System.getProperty("batch.mode", "false"))) {
+            throw new SkipException("SpBatchTest runs only when batch.mode=true.");
+        }
+    }
+
     @Test(description = "Run SP new activation flow in Jenkins batch mode")
     @Feature("Jenkins Batch")
     public void runBatch() throws Exception {
@@ -43,10 +52,16 @@ public class SpBatchTest extends BaseEocTest {
                         iteration,
                         startedAt,
                         Duration.between(startedAt, Instant.now()),
-                        orderId
+                        orderId,
+                        summarizeStepStatuses(journey)
                 );
                 results.add(result);
                 writeReportsOrThrow(requestedOrderCount, results);
+                LOGGER.info("ORDER {} SUMMARY: status=PASSED, duration={}s, orderId={}, steps={}",
+                        iteration,
+                        String.format("%.2f", result.duration().toMillis() / 1000.0),
+                        orderId,
+                        result.notes());
                 LOGGER.info("Completed SP batch iteration {}/{} with order {}", iteration, requestedOrderCount, orderId);
             } catch (Exception exception) {
                 ExecutionResult result = ExecutionResult.failed(
@@ -54,15 +69,21 @@ public class SpBatchTest extends BaseEocTest {
                         startedAt,
                         Duration.between(startedAt, Instant.now()),
                         journey.getCreatedOrderId(),
-                        summarizeFailure(exception)
+                        summarizeStepStatuses(journey) + " | failure=" + summarizeFailure(exception)
                 );
                 results.add(result);
                 safeWriteReports(requestedOrderCount, results);
+                LOGGER.error("ORDER {} SUMMARY: status=FAILED, duration={}s, orderId={}, steps={}",
+                        iteration,
+                        String.format("%.2f", result.duration().toMillis() / 1000.0),
+                        valueOrDash(result.orderId()),
+                        result.notes());
                 LOGGER.error("SP batch iteration {}/{} failed", iteration, requestedOrderCount, exception);
                 throw exception;
             }
         }
 
+        logBatchSummary(results);
         LOGGER.info("SP batch finished successfully. Summary report: {}", SUMMARY_REPORT.toAbsolutePath());
     }
 
@@ -98,6 +119,20 @@ public class SpBatchTest extends BaseEocTest {
         } catch (IOException exception) {
             LOGGER.warn("Unable to write SP batch summary report", exception);
         }
+    }
+
+    private void logBatchSummary(List<ExecutionResult> results) {
+        StringBuilder builder = new StringBuilder("BATCH SUMMARY:");
+        for (ExecutionResult result : results) {
+            builder.append(System.lineSeparator())
+                    .append(" - order ")
+                    .append(result.iteration())
+                    .append(": status=").append(result.status())
+                    .append(", orderId=").append(valueOrDash(result.orderId()))
+                    .append(", duration=").append(String.format("%.2f", result.duration().toMillis() / 1000.0)).append("s")
+                    .append(", steps=").append(result.notes());
+        }
+        LOGGER.info(builder.toString());
     }
 
     private String buildMarkdownSummary(int requestedOrderCount, List<ExecutionResult> results) {
@@ -159,6 +194,11 @@ public class SpBatchTest extends BaseEocTest {
         return message.replace('\r', ' ').replace('\n', ' ').trim();
     }
 
+    private String summarizeStepStatuses(JawwyOrderJourney journey) {
+        List<String> stepStatuses = journey.getStepStatuses();
+        return stepStatuses.isEmpty() ? "No completed steps recorded" : String.join(" ; ", stepStatuses);
+    }
+
     private String csvEscape(String value) {
         String normalized = value == null ? "" : value.replace("\"", "\"\"");
         return "\"" + normalized + "\"";
@@ -193,8 +233,8 @@ public class SpBatchTest extends BaseEocTest {
             this.notes = notes;
         }
 
-        private static ExecutionResult passed(int iteration, Instant startedAt, Duration duration, String orderId) {
-            return new ExecutionResult(iteration, "PASSED", startedAt, duration, orderId, "Flow completed successfully");
+        private static ExecutionResult passed(int iteration, Instant startedAt, Duration duration, String orderId, String notes) {
+            return new ExecutionResult(iteration, "PASSED", startedAt, duration, orderId, notes);
         }
 
         private static ExecutionResult failed(int iteration, Instant startedAt, Duration duration, String orderId, String notes) {

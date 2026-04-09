@@ -44,7 +44,9 @@ public class OrderMessageRepository {
             Thread.sleep(config.lmdInitialDelayMs());
 
             for (int attempt = 1; attempt <= config.lmdRetries(); attempt++) {
-                ActionLogger.step(LOGGER, "Looking for LMD ID, attempt " + attempt + "/" + config.lmdRetries());
+                if (attempt == 1 || attempt == config.lmdRetries() || attempt % 3 == 0) {
+                    LOGGER.info("Looking for LMD ID, attempt {}/{}", attempt, config.lmdRetries());
+                }
 
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     statement.setString(1, orderId);
@@ -120,5 +122,40 @@ public class OrderMessageRepository {
             statement.setString(1, orderId);
             return statement.executeQuery().next();
         }
+    }
+
+    @Step("Check whether order {orderId} reached CLOSED.COMPLETED after the manual task")
+    public boolean hasClosedCompletedState(String orderId) throws Exception {
+        String sql = "SELECT 1 FROM EOC.CWMESSAGELOG WHERE ORDER_ID = ? AND (" +
+                "stepname LIKE '%UPDATE_ORDER_SATATE_CLOSED.COMPLETED%' OR " +
+                "stepname LIKE '%UPDATE_ORDER_STATE_CLOSED.COMPLETED%'" +
+                ")";
+
+        try (Connection connection = connect();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, orderId);
+            return statement.executeQuery().next();
+        }
+    }
+
+    @Step("Get recent order step names for order {orderId}")
+    public List<String> getStepNames(String orderId) throws Exception {
+        List<String> stepNames = new ArrayList<>();
+        String sql = "SELECT stepname FROM EOC.CWMESSAGELOG WHERE ORDER_ID = ?";
+
+        try (Connection connection = connect();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, orderId);
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                String stepName = resultSet.getString("stepname");
+                if (stepName != null && !stepNames.contains(stepName)) {
+                    stepNames.add(stepName);
+                }
+            }
+        }
+
+        return stepNames;
     }
 }

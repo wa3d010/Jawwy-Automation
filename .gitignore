@@ -8,6 +8,7 @@ target/
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
+.idea/vcs.xml
 .idea/libraries/
 *.iws
 *.iml
@@ -37,6 +38,7 @@ build/
 logs/
 allure-results/
 .m2-local/
+docs/~$*.pptx
 
 ### Mac OS ###
 .DS_Store

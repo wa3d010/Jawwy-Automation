@@ -317,6 +317,18 @@ public final class FrameworkConfig {
         return getLong("workflow.manual-task.poll-interval-ms");
     }
 
+    public long manualTaskVerificationTimeoutMs() {
+        return getLong("workflow.manual-task.verification-timeout-ms");
+    }
+
+    public long manualTaskVerificationPollIntervalMs() {
+        return getLong("workflow.manual-task.verification-poll-interval-ms");
+    }
+
+    public int manualTaskUiAttempts() {
+        return getInt("workflow.manual-task.ui-attempts");
+    }
+
     public long uiPostLoginDelayMs() {
         return getLong("ui.post-login-delay-ms");
     }

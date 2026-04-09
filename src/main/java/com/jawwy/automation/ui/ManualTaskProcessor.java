@@ -121,7 +121,9 @@ public class ManualTaskProcessor {
 
         while (System.currentTimeMillis() < deadline) {
             attempt++;
-            ActionLogger.step(LOGGER, "Searching worklist by order ID " + orderId);
+            if (attempt == 1 || attempt % 3 == 0) {
+                LOGGER.info("Searching worklist by order ID {} (attempt {})", orderId, attempt);
+            }
             worklistPage.searchOrder(orderId);
 
             Locator row = worklistPage.findRow(orderId);
@@ -134,7 +136,9 @@ public class ManualTaskProcessor {
             }
 
             try {
-                LOGGER.info("Manual task not ready for order {} on poll attempt {}", orderId, attempt);
+                if (attempt == 1 || attempt % 3 == 0) {
+                    LOGGER.info("Manual task not ready for order {} on poll attempt {}", orderId, attempt);
+                }
                 Thread.sleep(config.manualTaskPollIntervalMs());
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
