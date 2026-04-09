@@ -85,6 +85,7 @@ public class ManualTaskProcessor {
     }
 
     private void processSharingLimitsTaskInternal(String orderId, boolean asyncMode) {
+        PlaywrightManager.stop();
         PlaywrightManager.start();
         Page page = PlaywrightManager.page();
 
@@ -104,9 +105,9 @@ public class ManualTaskProcessor {
         }
 
         ActionLogger.step(LOGGER, "SHARING_LIMITS task detected for order " + orderId);
-        worklistPage.startWork();
+        worklistPage.startWork(row);
         ActionLogger.step(LOGGER, "Task started successfully");
-        worklistPage.skipTask();
+        worklistPage.skipTask(row);
         ActionLogger.step(LOGGER, "Task skipped successfully");
 
         if (asyncMode) {

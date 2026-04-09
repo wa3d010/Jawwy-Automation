@@ -4,6 +4,7 @@ import com.jawwy.automation.api.ApiSupport;
 import com.jawwy.automation.payload.PayloadLoader;
 import com.jawwy.automation.payload.TemplateEngine;
 import com.jawwy.automation.reporting.ActionLogger;
+import io.restassured.response.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,20 +21,28 @@ public class BiometricsClient extends ApiSupport {
         String template = PayloadLoader.load("payloads/callbacks/Biometrics.json");
         String body = TemplateEngine.apply(template, Map.of("orderId", orderId));
 
+        sleep(config.biometricsInitialDelayMs(), "Interrupted before sending biometrics callback.");
+
         AssertionError lastFailure = null;
 
         for (int attempt = 1; attempt <= config.biometricsRetries(); attempt++) {
             try {
-                given()
+                Response response = given()
                         .spec(requestSpec())
                         .pathParam("app", config.applicationContext())
                         .pathParam("orderId", orderId)
                         .body(body)
                         .when()
-                        .post("/{app}/validate/biometrics/{orderId}")
-                        .then()
-                        .statusCode(200);
-                return;
+                        .post("/{app}/validate/biometrics/{orderId}");
+
+                int actualStatus = response.statusCode();
+                if (actualStatus == 200) {
+                    return;
+                }
+
+                String responseBody = safeResponseBody(response);
+                throw new AssertionError("Expected status code <200> but was <" + actualStatus + ">."
+                        + " Biometrics response body: " + responseBody);
             } catch (AssertionError failure) {
                 lastFailure = failure;
                 if (attempt == config.biometricsRetries()) {
@@ -42,8 +51,8 @@ public class BiometricsClient extends ApiSupport {
 
                 ActionLogger.warn(LOGGER,
                         "Biometrics callback attempt " + attempt + "/" + config.biometricsRetries()
-                                + " failed for order " + orderId + ". Retrying...");
-                sleepBeforeRetry();
+                                + " failed for order " + orderId + ". " + failure.getMessage() + " Retrying...");
+                sleep(config.biometricsRetryIntervalMs(), "Interrupted while retrying biometrics callback.");
             }
         }
 
@@ -52,12 +61,22 @@ public class BiometricsClient extends ApiSupport {
         }
     }
 
-    private void sleepBeforeRetry() {
+    private String safeResponseBody(Response response) {
         try {
-            Thread.sleep(config.biometricsRetryIntervalMs());
+            String body = response.getBody().asString();
+            return body == null || body.isBlank() ? "<empty>" : body;
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Unable to read biometrics response body", exception);
+            return "<unavailable>";
+        }
+    }
+
+    private void sleep(long delayMs, String interruptionMessage) {
+        try {
+            Thread.sleep(delayMs);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while retrying biometrics callback.", exception);
+            throw new IllegalStateException(interruptionMessage, exception);
         }
     }
 }

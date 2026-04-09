@@ -22,8 +22,14 @@ public class WorklistPage {
     }
 
     public void openTasksPanel() {
-        page.locator("text=Tasks").click(new Locator.ClickOptions().setForce(true));
-        page.getByLabel("Order ID").waitFor();
+        if (isOrderSearchVisible()) {
+            return;
+        }
+
+        Locator tasksMenu = page.locator("td.cwTasksViewMenu").first();
+        tasksMenu.waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
+        tasksMenu.click(new Locator.ClickOptions().setForce(true));
+        page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
     }
 
     public void searchOrder(String orderId) {
@@ -39,17 +45,18 @@ public class WorklistPage {
                 .first();
     }
 
-    public void startWork() {
-        page.locator("span[eventpart='valueicon']").first().click(new Locator.ClickOptions().setForce(true));
-        page.getByText("Start Work").waitFor();
-        page.getByText("Start Work").click(new Locator.ClickOptions().setForce(true));
-        page.getByText("Actions").waitFor();
+    public void startWork(Locator row) {
+        selectRow(row);
+        clickTextAction("Start Work");
+        page.waitForTimeout(config.uiActionDelayMs());
     }
 
-    public void skipTask() {
-        page.getByText("Actions").click(new Locator.ClickOptions().setForce(true));
-        page.getByText("Skip the task").waitFor();
-        page.getByText("Skip the task").click(new Locator.ClickOptions().setForce(true));
+    public void skipTask(Locator row) {
+        selectRow(row);
+        clickTextAction("Actions");
+        page.waitForTimeout(config.uiActionDelayMs());
+        clickTextAction("Skip the task");
+        page.waitForTimeout(config.uiActionDelayMs());
     }
 
     private void waitForWorklistReady() {
@@ -69,5 +76,106 @@ public class WorklistPage {
 
         page.locator("text=/.*Worklist.*/i").first()
                 .waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
+    }
+
+    private void selectRow(Locator row) {
+        Locator[] candidateTriggers = new Locator[]{
+                page.locator("tr[role='listitem'] span[eventpart='valueicon']").first(),
+                page.locator("span[eventpart='valueicon']").first(),
+                page.locator("[eventpart='valueicon']").first(),
+                row,
+                row.locator("span[eventpart='valueicon']").first(),
+                row.locator("[eventpart='valueicon']").first(),
+                row.locator("td img").first(),
+                row.locator("td button").first(),
+                row.locator("input[type='checkbox']").first()
+        };
+
+        for (Locator candidateTrigger : candidateTriggers) {
+            try {
+                if (candidateTrigger.count() == 0) {
+                    continue;
+                }
+                candidateTrigger.scrollIntoViewIfNeeded();
+                candidateTrigger.click(new Locator.ClickOptions().setForce(true));
+                page.waitForTimeout(config.uiActionDelayMs());
+                return;
+            } catch (PlaywrightException ignored) {
+                // Try the next possible row action trigger.
+            }
+        }
+
+        throw new IllegalStateException("Unable to select the matched worklist row.");
+    }
+
+    private void clickTextAction(String text) {
+        Locator[] candidateActions = new Locator[]{
+                page.locator("text=" + text).first(),
+                page.getByText(text).first(),
+                page.locator("text=/.*" + java.util.regex.Pattern.quote(text) + ".*/i").first()
+        };
+
+        for (Locator candidateAction : candidateActions) {
+            try {
+                candidateAction.waitFor(new Locator.WaitForOptions().setTimeout(3000));
+                candidateAction.click(new Locator.ClickOptions().setForce(true));
+                return;
+            } catch (PlaywrightException ignored) {
+                // Try the next visible representation first.
+            }
+        }
+
+        try {
+            page.evaluate(
+                    "label => {" +
+                            " const nodes = Array.from(document.querySelectorAll('*'));" +
+                            " const match = nodes.find(node => node.textContent && node.textContent.trim() === label);" +
+                            " if (match) { match.click(); return true; }" +
+                            " return false;" +
+                            "}",
+                    text
+            );
+            return;
+        } catch (PlaywrightException ignored) {
+            // Fall through to the final failure below.
+        }
+
+        throw new IllegalStateException("Unable to find action '" + text + "'. Visible action hints: " + describeVisibleActionHints());
+    }
+
+    private String describeVisibleActionHints() {
+        String[] candidates = new String[]{
+                "Start Work",
+                "Actions",
+                "Skip the task",
+                "Skip Task",
+                "Skip",
+                "Work"
+        };
+
+        StringBuilder builder = new StringBuilder();
+        for (String candidate : candidates) {
+            try {
+                int count = page.getByText(candidate).count();
+                if (count > 0) {
+                    if (builder.length() > 0) {
+                        builder.append(", ");
+                    }
+                    builder.append(candidate).append("=").append(count);
+                }
+            } catch (PlaywrightException ignored) {
+                // Ignore diagnostics lookup failures.
+            }
+        }
+        return builder.length() == 0 ? "<none>" : builder.toString();
+    }
+
+    private boolean isOrderSearchVisible() {
+        try {
+            page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(2000));
+            return true;
+        } catch (PlaywrightException exception) {
+            return false;
+        }
     }
 }

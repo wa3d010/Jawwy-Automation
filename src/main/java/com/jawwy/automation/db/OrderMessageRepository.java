@@ -82,37 +82,27 @@ public class OrderMessageRepository {
                 "FROM EOC.CWMESSAGELOG WHERE order_id = ? AND stepname LIKE '%ESB_070%'";
 
         try (Connection connection = connect()) {
-            for (int attempt = 1; attempt <= config.comptelRetries(); attempt++) {
-                ActionLogger.step(LOGGER,
-                        "Looking for Comptel IDs, attempt " + attempt + "/" + config.comptelRetries());
+            ActionLogger.step(LOGGER, "Reading current Comptel IDs from DB");
 
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setString(1, orderId);
-                    ResultSet resultSet = statement.executeQuery();
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, orderId);
+                ResultSet resultSet = statement.executeQuery();
 
-                    while (resultSet.next()) {
-                        String sendData = resultSet.getString("send_data_text");
-                        logs.append("SendData: ").append(sendData).append(System.lineSeparator())
-                                .append(System.lineSeparator());
+                while (resultSet.next()) {
+                    String sendData = resultSet.getString("send_data_text");
+                    logs.append("SendData: ").append(sendData).append(System.lineSeparator())
+                            .append(System.lineSeparator());
 
-                        if (sendData != null) {
-                            Matcher matcher = COMPTEL_ID_PATTERN.matcher(sendData);
-                            while (matcher.find()) {
-                                String matchedId = matcher.group();
-                                if (!ids.contains(matchedId)) {
-                                    ids.add(matchedId);
-                                }
+                    if (sendData != null) {
+                        Matcher matcher = COMPTEL_ID_PATTERN.matcher(sendData);
+                        while (matcher.find()) {
+                            String matchedId = matcher.group();
+                            if (!ids.contains(matchedId)) {
+                                ids.add(matchedId);
                             }
                         }
                     }
                 }
-
-                if (!ids.isEmpty()) {
-                    attachLogs(logs.toString());
-                    return ids;
-                }
-
-                Thread.sleep(config.comptelRetryIntervalMs());
             }
         }
 

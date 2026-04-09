@@ -277,6 +277,10 @@ public final class FrameworkConfig {
         return getInt("workflow.biometrics.retries");
     }
 
+    public long biometricsInitialDelayMs() {
+        return getLong("workflow.biometrics.initial-delay-ms");
+    }
+
     public long biometricsRetryIntervalMs() {
         return getLong("workflow.biometrics.retry-interval-ms");
     }

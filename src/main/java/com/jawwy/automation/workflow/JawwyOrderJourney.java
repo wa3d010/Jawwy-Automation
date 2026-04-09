@@ -73,16 +73,23 @@ public class JawwyOrderJourney {
 
         while (sentIds.size() < 2 && System.currentTimeMillis() - startedAt < config.comptelTimeoutMs()) {
             List<String> ids = orderMessageRepository.extractComptelIds(requireCreatedOrderId());
+            boolean sentNewId = false;
+
             for (String id : ids) {
                 if (!sentIds.contains(id)) {
                     comptelCallbackClient.send(id);
                     sentIds.add(id);
                     ActionLogger.step(LOGGER, "Comptel callback sent for ID " + id);
+                    sentNewId = true;
                     break;
                 }
             }
 
             if (sentIds.size() < 2) {
+                if (!ids.isEmpty() && !sentNewId) {
+                    LOGGER.info("Current Comptel IDs for order {} are {} but a second unique ID is still pending",
+                            requireCreatedOrderId(), ids);
+                }
                 Thread.sleep(config.comptelRetryIntervalMs());
             }
         }
