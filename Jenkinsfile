@@ -74,6 +74,7 @@ pipeline {
         stage('Business Summary') {
             steps {
                 bat 'if exist target\\jenkins\\sp-batch-summary.md (type target\\jenkins\\sp-batch-summary.md) else (echo No batch summary found.)'
+                echo 'Tip: Open Artifacts -> target/jenkins/dashboard/index.html for the manager dashboard.'
             }
         }
 
