@@ -32,6 +32,7 @@ public class SpBatchTest extends BaseEocTest {
     private static final Path CSV_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.csv");
     private static final Path DASHBOARD_DIRECTORY = REPORT_DIRECTORY.resolve("dashboard");
     private static final Path DASHBOARD_INDEX = DASHBOARD_DIRECTORY.resolve("index.html");
+    private static final Path DASHBOARD_CSS = DASHBOARD_DIRECTORY.resolve("style.css");
 
     private final String orderFlow = resolveOrderFlow();
     private final String targetEnv = resolveTargetEnv();
@@ -81,7 +82,7 @@ public class SpBatchTest extends BaseEocTest {
                         startedAt,
                         Duration.between(startedAt, Instant.now()),
                         journey.getCreatedOrderId(),
-                        summarizeStepStatuses(journey) + " | failure=" + summarizeFailure(ex)
+                        summarizeStepStatuses(journey) + " ; failure=" + summarizeFailure(ex)
                 );
 
                 results.add(result);
@@ -105,6 +106,7 @@ public class SpBatchTest extends BaseEocTest {
 
         Files.writeString(SUMMARY_REPORT, buildMarkdownSummary(requestedOrderCount, results));
         Files.writeString(CSV_REPORT, buildCsvSummary(results));
+        Files.writeString(DASHBOARD_CSS, buildDashboardCss());
         Files.writeString(DASHBOARD_INDEX, buildHtmlDashboard(requestedOrderCount, results));
     }
 
@@ -129,25 +131,12 @@ public class SpBatchTest extends BaseEocTest {
             .append("<meta charset=\"utf-8\">")
             .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
             .append("<title>Order Flow Dashboard</title>")
-            .append("<style>")
-            .append("body{margin:0;background:#f6f8fb;font:14px system-ui}")
-            .append(".main{max-width:1200px;margin:auto;padding:24px}")
-            .append(".card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:16px}")
-            .append(".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}")
-            .append(".pill{padding:8px 14px;border-radius:20px;margin:12px 0;display:inline-block}")
-            .append(".pill.good{color:#16a34a}.pill.bad{color:#ef4444}")
-            .append("table{width:100%;border-collapse:collapse}")
-            .append("th,td{padding:12px;border-bottom:1px solid #ddd;text-align:left}")
-            .append(".badge{padding:6px 10px;border-radius:12px;font-weight:700}")
-            .append(".badge.good{color:#16a34a}.badge.bad{color:#ef4444}")
-            .append("details summary{cursor:pointer;font-weight:700}")
-            .append(".steps{margin-top:8px}")
-            .append(".step{display:flex;justify-content:space-between;padding:6px 0}")
-            .append("</style></head><body><main class=\"main\">");
+            .append("<link rel=\"stylesheet\" href=\"style.css\">")
+            .append("</head><body><main class=\"main\">");
 
         html.append("<h1>Order Flow Report</h1>")
-            .append("<div>Flow <b>").append(escapeHtml(orderFlow))
-            .append("</b> on <b>").append(escapeHtml(targetEnv)).append("</b></div>")
+            .append("<p class=\"subtitle\">Flow <b>").append(escapeHtml(orderFlow))
+            .append("</b> on <b>").append(escapeHtml(targetEnv)).append("</b></p>")
             .append("<div class=\"pill ").append(overallClass).append("\">Overall: ")
             .append(overall).append("</div>");
 
@@ -156,6 +145,7 @@ public class SpBatchTest extends BaseEocTest {
             .append(metric("Flow", orderFlow))
             .append(metric("Orders", String.valueOf(requestedOrderCount)))
             .append(metric("Passed", String.valueOf(passedCount)))
+            .append(metric("Failed", String.valueOf(failedCount)))
             .append(metric("Avg Duration", String.format("%.2fs", avgDurationSec)))
             .append("</div>");
 
@@ -193,6 +183,273 @@ public class SpBatchTest extends BaseEocTest {
         return html.toString();
     }
 
+    private String buildDashboardCss() {
+    return String.join("\n",
+        ":root{",
+        "  --bg:#f5f7fb;",
+        "  --surface:#ffffff;",
+        "  --surface-2:#f9fafb;",
+        "  --text:#111827;",
+        "  --muted:#6b7280;",
+        "  --line:#e5e7eb;",
+        "  --good:#16a34a;",
+        "  --bad:#dc2626;",
+        "  --shadow:0 10px 30px rgba(17,24,39,0.06);",
+        "  --radius:16px;",
+        "}",
+        "",
+        "*{",
+        "  box-sizing:border-box;",
+        "}",
+        "",
+        "html{",
+        "  -webkit-font-smoothing:antialiased;",
+        "  -moz-osx-font-smoothing:grayscale;",
+        "}",
+        "",
+        "body{",
+        "  margin:0;",
+        "  background:linear-gradient(180deg,#f8fafc 0%,#f5f7fb 100%);",
+        "  color:var(--text);",
+        "  font:14px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;",
+        "}",
+        "",
+        ".main{",
+        "  max-width:1180px;",
+        "  margin:0 auto;",
+        "  padding:40px 20px 56px;",
+        "}",
+        "",
+        "h1{",
+        "  margin:0 0 8px;",
+        "  font-size:32px;",
+        "  line-height:1.15;",
+        "  font-weight:700;",
+        "  letter-spacing:-0.02em;",
+        "}",
+        "",
+        ".subtitle{",
+        "  color:var(--muted);",
+        "  font-size:15px;",
+        "  margin:0 0 18px;",
+        "}",
+        "",
+        ".card{",
+        "  background:var(--surface);",
+        "  border:1px solid rgba(229,231,235,0.9);",
+        "  border-radius:var(--radius);",
+        "  padding:18px 18px 16px;",
+        "  box-shadow:var(--shadow);",
+        "}",
+        "",
+        ".grid{",
+        "  display:grid;",
+        "  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));",
+        "  gap:14px;",
+        "  margin:22px 0 26px;",
+        "}",
+        "",
+        ".card > div:first-child{",
+        "  color:var(--muted);",
+        "  font-size:13px;",
+        "  margin-bottom:8px;",
+        "}",
+        "",
+        ".card b{",
+        "  font-size:22px;",
+        "  font-weight:700;",
+        "  letter-spacing:-0.02em;",
+        "}",
+        "",
+        ".pill{",
+        "  display:inline-flex;",
+        "  align-items:center;",
+        "  gap:8px;",
+        "  margin:10px 0 6px;",
+        "  padding:8px 14px;",
+        "  border-radius:999px;",
+        "  font-size:13px;",
+        "  font-weight:700;",
+        "  letter-spacing:0.02em;",
+        "  border:1px solid transparent;",
+        "}",
+        "",
+        ".pill.good{",
+        "  color:var(--good);",
+        "  background:rgba(22,163,74,0.08);",
+        "  border-color:rgba(22,163,74,0.14);",
+        "}",
+        "",
+        ".pill.bad{",
+        "  color:var(--bad);",
+        "  background:rgba(220,38,38,0.08);",
+        "  border-color:rgba(220,38,38,0.14);",
+        "}",
+        "",
+        "table{",
+        "  width:100%;",
+        "  border-collapse:separate;",
+        "  border-spacing:0;",
+        "  background:var(--surface);",
+        "  border:1px solid rgba(229,231,235,0.9);",
+        "  border-radius:var(--radius);",
+        "  overflow:hidden;",
+        "  box-shadow:var(--shadow);",
+        "}",
+        "",
+        "thead th{",
+        "  background:var(--surface-2);",
+        "  color:var(--muted);",
+        "  font-size:12px;",
+        "  font-weight:700;",
+        "  text-transform:uppercase;",
+        "  letter-spacing:0.06em;",
+        "  padding:14px 16px;",
+        "  border-bottom:1px solid var(--line);",
+        "  text-align:left;",
+        "}",
+        "",
+        "tbody td{",
+        "  padding:16px;",
+        "  border-bottom:1px solid var(--line);",
+        "  vertical-align:top;",
+        "}",
+        "",
+        "tbody tr:last-child td{",
+        "  border-bottom:0;",
+        "}",
+        "",
+        "tbody tr:hover{",
+        "  background:rgba(249,250,251,0.8);",
+        "}",
+        "",
+        ".badge{",
+        "  display:inline-flex;",
+        "  align-items:center;",
+        "  justify-content:center;",
+        "  min-width:88px;",
+        "  padding:7px 12px;",
+        "  border-radius:999px;",
+        "  font-size:12px;",
+        "  font-weight:700;",
+        "  letter-spacing:0.03em;",
+        "  border:1px solid transparent;",
+        "}",
+        "",
+        ".badge.good{",
+        "  color:var(--good);",
+        "  background:rgba(22,163,74,0.08);",
+        "  border-color:rgba(22,163,74,0.14);",
+        "}",
+        "",
+        ".badge.bad{",
+        "  color:var(--bad);",
+        "  background:rgba(220,38,38,0.08);",
+        "  border-color:rgba(220,38,38,0.14);",
+        "}",
+        "",
+        "details{",
+        "  background:var(--surface-2);",
+        "  border:1px solid var(--line);",
+        "  border-radius:12px;",
+        "  padding:10px 12px;",
+        "}",
+        "",
+        "details summary{",
+        "  cursor:pointer;",
+        "  list-style:none;",
+        "  font-weight:600;",
+        "  color:var(--text);",
+        "  user-select:none;",
+        "}",
+        "",
+        "details summary::-webkit-details-marker{",
+        "  display:none;",
+        "}",
+        "",
+        "details summary::after{",
+        "  content:\"+\";",
+        "  float:right;",
+        "  color:var(--muted);",
+        "  font-weight:700;",
+        "}",
+        "",
+        "details[open] summary::after{",
+        "  content:\"–\";",
+        "}",
+        "",
+        ".steps{",
+        "  margin-top:12px;",
+        "  padding-top:10px;",
+        "  border-top:1px solid var(--line);",
+        "}",
+        "",
+        ".step{",
+        "  display:flex;",
+        "  align-items:center;",
+        "  justify-content:space-between;",
+        "  gap:16px;",
+        "  padding:8px 0;",
+        "  color:var(--text);",
+        "}",
+        "",
+        ".step + .step{",
+        "  border-top:1px dashed rgba(229,231,235,0.8);",
+        "}",
+        "",
+        ".step div:last-child{",
+        "  color:var(--muted);",
+        "  font-weight:600;",
+        "  white-space:nowrap;",
+        "}",
+        "",
+        "b{",
+        "  font-weight:700;",
+        "}",
+        "",
+        "@media (max-width:760px){",
+        "  .main{",
+        "    padding:28px 14px 40px;",
+        "  }",
+        "",
+        "  h1{",
+        "    font-size:26px;",
+        "  }",
+        "",
+        "  table,",
+        "  thead,",
+        "  tbody,",
+        "  th,",
+        "  td,",
+        "  tr{",
+        "    display:block;",
+        "  }",
+        "",
+        "  thead{",
+        "    display:none;",
+        "  }",
+        "",
+        "  tbody tr{",
+        "    background:var(--surface);",
+        "    border:1px solid var(--line);",
+        "    border-radius:14px;",
+        "    box-shadow:var(--shadow);",
+        "    margin-bottom:14px;",
+        "    overflow:hidden;",
+        "  }",
+        "",
+        "  tbody td{",
+        "    border-bottom:1px solid var(--line);",
+        "    padding:12px 14px;",
+        "  }",
+        "",
+        "  tbody td:last-child{",
+        "    border-bottom:0;",
+        "  }",
+        "}"
+    );
+}
+  
     private String metric(String label, String value) {
         return "<div class=\"card\"><div>" + escapeHtml(label) +
                "</div><div><b>" + escapeHtml(value) + "</b></div></div>";
@@ -205,7 +462,7 @@ public class SpBatchTest extends BaseEocTest {
 
         if (!isBlank(notes)) {
             for (String part : notes.split("\\s*;\\s*")) {
-                String[] kv = part.split("=");
+                String[] kv = part.split("=", 2);
                 String name = kv[0].trim();
                 String status = kv.length > 1 ? kv[1].trim() : "UNKNOWN";
                 steps.add(new StepItem(name, status));
@@ -326,10 +583,10 @@ public class SpBatchTest extends BaseEocTest {
 
         for (ExecutionResult r : results) {
             md.append("| ").append(r.iteration()).append(" | ")
-               .append(r.passed() ? "PASSED" : "FAILED").append(" | ")
-               .append(valueOrDash(r.orderId())).append(" | ")
-               .append(String.format("%.2fs", r.duration().toMillis() / 1000.0)).append(" | ")
-               .append(valueOrDash(r.notes())).append(" |\n");
+              .append(r.passed() ? "PASSED" : "FAILED").append(" | ")
+              .append(valueOrDash(r.orderId())).append(" | ")
+              .append(String.format("%.2fs", r.duration().toMillis() / 1000.0)).append(" | ")
+              .append(valueOrDash(r.notes())).append(" |\n");
         }
 
         return md.toString();
@@ -341,10 +598,10 @@ public class SpBatchTest extends BaseEocTest {
 
         for (ExecutionResult r : results) {
             csv.append(r.iteration()).append(",")
-               .append(r.passed() ? "PASSED" : "FAILED").append(",")
-               .append(escapeCsv(r.orderId())).append(",")
-               .append(String.format("%.2f", r.duration().toMillis() / 1000.0)).append(",")
-               .append(escapeCsv(r.notes())).append("\n");
+              .append(r.passed() ? "PASSED" : "FAILED").append(",")
+              .append(escapeCsv(r.orderId())).append(",")
+              .append(String.format("%.2f", r.duration().toMillis() / 1000.0)).append(",")
+              .append(escapeCsv(r.notes())).append("\n");
         }
 
         return csv.toString();
