@@ -257,6 +257,11 @@ public final class FrameworkConfig {
         return Boolean.parseBoolean(getRequired("browser.headless"));
     }
 
+    public boolean attachTechnicalReportDetails() {
+        String value = properties.getProperty("report.attach.technical", "false");
+        return Boolean.parseBoolean(value.trim());
+    }
+
     public long browserWarmupDelayMs() {
         return getLong("browser.warmup.delay-ms");
     }

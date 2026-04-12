@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    options {
+        // We'll do our own checkout in a business-named stage (so "Checkout SCM" doesn't show up).
+        skipDefaultCheckout(true)
+    }
+
     parameters {
         choice(name: 'TARGET_ENV', choices: ['local', 'sit', 'uat'], description: 'Environment to execute against')
         choice(name: 'ORDER_FLOW', choices: [
@@ -53,13 +58,13 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Prepare Automation Code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Run SP Batch Flow') {
+        stage('Run Order Flow') {
             steps {
                 echo "Business Flow: ${params.ORDER_FLOW} | Env: ${params.TARGET_ENV} | Order Count: ${params.ORDER_COUNT}"
                 bat 'mvn -q clean test -Denv=%TARGET_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow=\"%ORDER_FLOW%\" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml'
@@ -71,17 +76,12 @@ pipeline {
                 bat 'if exist target\\jenkins\\sp-batch-summary.md (type target\\jenkins\\sp-batch-summary.md) else (echo No batch summary found.)'
             }
         }
-    }
 
-    post {
-        always {
-            script {
-                try {
-                    archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
-                    junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
-                } catch (exception) {
-                    echo "Skipping post-build report publishing because no workspace context is available: ${exception.message}"
-                }
+        stage('Publish Reports') {
+            steps {
+                // Keep artifacts available in Jenkins without showing technical steps in the stage graph.
+                archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
+                junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
             }
         }
     }
