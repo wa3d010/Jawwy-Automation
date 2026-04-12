@@ -46,6 +46,8 @@ public final class PlaywrightManager {
             browser = launchChromium(config);
             context = browser.newContext(new Browser.NewContextOptions().setIgnoreHTTPSErrors(true));
             page = context.newPage();
+            page.navigate(config.uiBaseUrl() + "/" + config.applicationContext() + "/login");
+            page.waitForLoadState();
             started = true;
         } catch (RuntimeException exception) {
             stop();

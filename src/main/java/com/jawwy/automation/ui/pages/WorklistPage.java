@@ -23,50 +23,105 @@ public class WorklistPage {
     }
 
     public void open() {
-        page.navigate(config.uiBaseUrl() + "/" + config.applicationContext() + "/worklistManagement");
-        waitForWorklistReady();
-    }
-
-    public void openTasksPanel() {
-        // In this UI, searching by Order ID works only after opening the Tasks view (top-right "Tasks (n)").
-        Pattern tasksPattern = Pattern.compile("^Tasks(\\s*\\(\\d+\\))?$", Pattern.CASE_INSENSITIVE);
-        Locator[] tasksCandidates = new Locator[]{
-                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(tasksPattern)).first(),
-                page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName(tasksPattern)).first(),
-                page.locator("td.cwTasksViewMenu").first(),
-                page.locator("text=Tasks").first(),
-        };
-
-        for (Locator tasksCandidate : tasksCandidates) {
-            try {
-                tasksCandidate.waitFor(new Locator.WaitForOptions().setTimeout(10000));
-                tasksCandidate.click(new Locator.ClickOptions().setForce(true));
-                // Some pages show the search panel but not the "User Worklist" data view until Tasks is opened.
-                try {
-                    page.getByText("User Worklist").waitFor(new Locator.WaitForOptions().setTimeout(15000));
-                } catch (PlaywrightException ignored) {
-                    // Not all environments render this label consistently.
-                }
-                page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
-                return;
-            } catch (PlaywrightException ignored) {
-                // Try the next Tasks control representation.
-            }
-        }
-
-        if (isOrderSearchVisible()) {
+        if (isOnWorklistPage()) {
             return;
         }
 
-        page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
+        if (isApplicationSelectionPage()) {
+            clickWorklistManagementTile();
+        } else {
+            page.navigate(config.uiBaseUrl() + "/" + config.applicationContext() + "/worklistManagement");
+        }
+
+        waitForWorklistReady();
+    }
+
+    private boolean isApplicationSelectionPage() {
+        try {
+            Locator selectionHeader = page.getByText("Application Selection").first();
+            return selectionHeader.count() > 0 && selectionHeader.isVisible();
+        } catch (PlaywrightException ignored) {
+            return false;
+        }
+    }
+
+    private void clickWorklistManagementTile() {
+        Locator tile = page.getByText("Worklist Management").first();
+        if (tile.count() == 0 || !tile.isVisible()) {
+            tile = page.locator("text=/.*Worklist Management.*/i").first();
+        }
+        tile.click(new Locator.ClickOptions().setForce(true).setTimeout(5000));
+    }
+
+    public void openTasksPanel() {
+        Locator tasksButton = findTasksPanelToggle();
+        if (tasksButton == null || tasksButton.count() == 0) {
+            throw new IllegalStateException("Unable to locate the Tasks pane toggle.");
+        }
+
+        try {
+            tasksButton.scrollIntoViewIfNeeded();
+            tasksButton.click(new Locator.ClickOptions().setForce(true).setTimeout(3000));
+        } catch (PlaywrightException ignored) {
+            throw new IllegalStateException("Failed to click the Tasks pane toggle.");
+        }
+
+        waitForOrderSearchVisible();
+    }
+
+    private Locator findTasksPanelToggle() {
+        Locator[] tasksCandidates = new Locator[]{
+                page.locator("text=Tasks").first(),
+                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Tasks")).first(),
+                page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Tasks")).first(),
+                page.locator("text=/.*Tasks.*/i").first(),
+                page.locator("td.cwTasksViewMenu").first()
+        };
+
+        for (Locator candidate : tasksCandidates) {
+            try {
+                if (candidate.count() > 0 && candidate.isVisible()) {
+                    return candidate;
+                }
+            } catch (PlaywrightException ignored) {
+                // Try next candidate.
+            }
+        }
+
+        return page.locator("text=/.*Tasks.*/i").first();
+    }
+
+    public void clearOrderSearch() {
+        try {
+            Locator orderInput = page.getByLabel("Order ID");
+            if (orderInput.count() > 0 && orderInput.isVisible()) {
+                orderInput.click(new Locator.ClickOptions().setClickCount(3));
+                orderInput.fill("");
+                page.waitForTimeout(100);
+            }
+        } catch (PlaywrightException ignored) {
+            // Search field might not be visible or accessible, continue
+        }
     }
 
     public void searchOrder(String orderId) {
-        waitForWorklistReady();
-        page.getByLabel("Order ID").fill(orderId);
+        // Order ID input should already be visible after Tasks panel is opened
+        Locator orderInput = page.getByLabel("Order ID");
+        orderInput.click(new Locator.ClickOptions().setClickCount(3).setTimeout(1000));
+        orderInput.fill(orderId);
         page.keyboard().press("Enter");
-        page.waitForTimeout(config.uiTaskSearchDelayMs());
+        waitForSearchResults(orderId);
     }
+
+
+
+    private void waitForOrderSearchVisible() {
+        if (isOrderSearchVisible()) {
+            return;
+        }
+        page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(500));
+    }
+
 
     public Locator findRow(String orderId) {
         Locator listItemRow = page.locator("tr[role='listitem']")
@@ -84,15 +139,51 @@ public class WorklistPage {
 
     public void startWork(Locator row) {
         selectTaskCheckbox(row);
-        clickToolbarAction("Start Work", 10000);
-        page.waitForTimeout(Math.max(config.uiActionDelayMs(), 800));
+
+        if (!clickVisibleToolbarAction("Start Work", 2000)) {
+            throw new IllegalStateException("Unable to find toolbar action 'Start Work'. Visible action hints: "
+                    + describeVisibleActionHints());
+        }
+
+        waitForStartWorkToBegin(row);
+        page.waitForTimeout(100);
     }
 
+    private void waitForStartWorkToBegin(Locator row) {
+        long deadline = System.currentTimeMillis() + 1000;
+        while (System.currentTimeMillis() < deadline) {
+            if (!isToolbarActionVisible("Start Work")) {
+                return;
+            }
+            try {
+                if (row.count() == 0 || !row.innerText().contains("SHARING_LIMITS")) {
+                    return;
+                }
+            } catch (PlaywrightException ignored) {
+                return;
+            }
+            page.waitForTimeout(100);
+        }
+    }
+
+
     public void skipTask(Locator row) {
-        clickToolbarAction("Actions", 8000);
-        page.waitForTimeout(Math.max(config.uiActionDelayMs(), 400));
-        clickToolbarAction("Skip the task", 8000);
-        page.waitForTimeout(Math.max(config.uiActionDelayMs(), 600));
+        if (isToolbarActionVisible("Start Work")) {
+            LOGGER.info("Start Work still visible before skip; retrying click.");
+            clickVisibleToolbarAction("Start Work", 3000);
+            waitForStartWorkToBegin(row);
+        }
+        clickToolbarAction("Actions", 5000);
+        page.waitForTimeout(300);
+
+        if (!clickVisibleToolbarAction("Skip the task", 3000)
+                && !clickVisibleToolbarAction("Skip Task", 3000)
+                && !clickVisibleToolbarAction("Skip", 3000)) {
+            throw new IllegalStateException("Unable to find toolbar action 'Skip the task'. Visible action hints: "
+                    + describeVisibleActionHints());
+        }
+
+        page.waitForTimeout(300);
 
         if (!waitForSkipUiConfirmation(row)) {
             // Some environments do not show a reliable "skipped" toast, and the grid can refresh silently.
@@ -102,24 +193,43 @@ public class WorklistPage {
         }
     }
 
+    private boolean clickVisibleToolbarAction(String label, long timeoutMs) {
+        try {
+            clickToolbarAction(label, timeoutMs);
+            return true;
+        } catch (IllegalStateException ignored) {
+            return false;
+        }
+    }
+
+    private boolean isToolbarActionVisible(String text) {
+        try {
+            Locator action = page.getByText(text, new Page.GetByTextOptions().setExact(true)).first();
+            return action.count() > 0 && action.isVisible();
+        } catch (PlaywrightException ignored) {
+            return false;
+        }
+    }
+
     private void waitForWorklistReady() {
         try {
-            page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
+            page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(3000));
             return;
         } catch (PlaywrightException ignored) {
             // Fall back to other page markers below.
         }
 
         try {
-            page.getByText("User Worklist").waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
+            page.getByText("User Worklist").waitFor(new Locator.WaitForOptions().setTimeout(3000));
             return;
         } catch (PlaywrightException ignored) {
             // Fall back to a looser worklist marker below.
         }
 
         page.locator("text=/.*Worklist.*/i").first()
-                .waitFor(new Locator.WaitForOptions().setTimeout(WORKLIST_LOAD_TIMEOUT_MS));
+                .waitFor(new Locator.WaitForOptions().setTimeout(3000));
     }
+
 
     private void selectTaskCheckbox(Locator row) {
         Locator[] candidateTriggers = new Locator[]{
@@ -138,7 +248,7 @@ public class WorklistPage {
                 }
                 candidateTrigger.scrollIntoViewIfNeeded();
                 candidateTrigger.click(new Locator.ClickOptions().setForce(true));
-                page.waitForTimeout(config.uiActionDelayMs());
+                page.waitForTimeout(200); // Reduced from config.uiActionDelayMs()
                 return;
             } catch (PlaywrightException ignored) {
                 // Try the next possible checkbox trigger.
@@ -149,7 +259,7 @@ public class WorklistPage {
             page.evaluate("() => { " +
                     "const checkbox = document.querySelector(\"tr[role='listitem'] span[eventpart='valueicon']\"); " +
                     "if (checkbox) checkbox.click(); }");
-            page.waitForTimeout(config.uiActionDelayMs());
+            page.waitForTimeout(200); // Reduced from config.uiActionDelayMs()
             return;
         } catch (PlaywrightException ignored) {
             // Fall through to the final failure below.
@@ -163,7 +273,9 @@ public class WorklistPage {
 
         while (System.currentTimeMillis() < deadline) {
             Locator[] actionCandidates = new Locator[]{
-                    page.getByText(text).first(),
+                    page.getByText(text, new Page.GetByTextOptions().setExact(true)).first(),
+                    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName(text)).first(),
+                    page.getByRole(AriaRole.MENUITEM, new Page.GetByRoleOptions().setName(text)).first(),
                     page.locator("text=" + text).first(),
                     page.locator("text=/.*" + java.util.regex.Pattern.quote(text) + ".*/i").first()
             };
@@ -174,7 +286,7 @@ public class WorklistPage {
                         continue;
                     }
                     actionCandidate.scrollIntoViewIfNeeded();
-                    actionCandidate.click(new Locator.ClickOptions().setForce(true));
+                    actionCandidate.click(new Locator.ClickOptions().setForce(true).setTimeout(5000));
                     return;
                 }
             } catch (PlaywrightException ignored) {
@@ -186,7 +298,7 @@ public class WorklistPage {
                         "label => {" +
                                 " const isVisible = element => !!(element && (element.offsetWidth || element.offsetHeight || element.getClientRects().length));" +
                                 " const nodes = Array.from(document.querySelectorAll('*'));" +
-                                " const match = nodes.find(node => node.textContent && node.textContent.includes(label) && isVisible(node));" +
+                                " const match = nodes.find(node => node.textContent && node.textContent.toLowerCase().includes(label.toLowerCase()) && isVisible(node));" +
                                 " if (match) { match.click(); return true; }" +
                                 " return false;" +
                                 "}",
@@ -199,7 +311,7 @@ public class WorklistPage {
                 // Retry until timeout.
             }
 
-            page.waitForTimeout(250);
+            page.waitForTimeout(200);
         }
 
         throw new IllegalStateException("Unable to find toolbar action '" + text + "'. Visible action hints: "
@@ -207,7 +319,7 @@ public class WorklistPage {
     }
 
     private boolean waitForSkipUiConfirmation(Locator row) {
-        long deadline = System.currentTimeMillis() + 15000;
+        long deadline = System.currentTimeMillis() + 3000;
 
         while (System.currentTimeMillis() < deadline) {
             if (hasVisibleExactText("Skip the task completed successfully")
@@ -230,7 +342,7 @@ public class WorklistPage {
                 return true;
             }
 
-            page.waitForTimeout(500);
+            page.waitForTimeout(200);
         }
 
         return false;
@@ -293,6 +405,18 @@ public class WorklistPage {
         return builder.length() == 0 ? "<none>" : builder.toString();
     }
 
+    private void waitForSearchResults(String orderId) {
+        long deadline = System.currentTimeMillis() + 5000; // 5 second timeout for search results
+        while (System.currentTimeMillis() < deadline) {
+            Locator row = findRow(orderId);
+            if (row.count() > 0) {
+                return; // Results found
+            }
+            page.waitForTimeout(100); // Short poll interval
+        }
+        // If no results found within timeout, continue anyway
+    }
+
     private boolean isOrderSearchVisible() {
         try {
             page.getByLabel("Order ID").waitFor(new Locator.WaitForOptions().setTimeout(2000));
@@ -300,5 +424,9 @@ public class WorklistPage {
         } catch (PlaywrightException exception) {
             return false;
         }
+    }
+
+    public boolean isOnWorklistPage() {
+        return isOrderSearchVisible();
     }
 }

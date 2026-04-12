@@ -7,7 +7,7 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'TARGET_ENV', choices: ['local', 'sit', 'uat'], description: 'Environment to execute against')
+        choice(name: 'TARGET_ENV', choices: ['Testing environment'], description: 'Environment to execute against')
         choice(name: 'ORDER_FLOW', choices: [
                 'New Activation Online',
                 'New Activation eSIM',
@@ -46,7 +46,7 @@ pipeline {
     }
 
     environment {
-        JAWWY_ENV = "${params.TARGET_ENV}"
+        JAWWY_ENV = "local"
         ORDER_FLOW = "${params.ORDER_FLOW}"
         JAWWY_API_BASE_URL = credentials('jawwy-api-base-url')
         JAWWY_UI_BASE_URL = credentials('jawwy-ui-base-url')
@@ -67,7 +67,7 @@ pipeline {
         stage('Run Order Flow') {
             steps {
                 echo "Business Flow: ${params.ORDER_FLOW} | Env: ${params.TARGET_ENV} | Order Count: ${params.ORDER_COUNT}"
-                bat 'mvn -q clean test -Denv=%TARGET_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow=\"%ORDER_FLOW%\" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml'
+                bat 'mvn -q clean test -Denv=%JAWWY_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow=\"%ORDER_FLOW%\" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml'
             }
         }
 

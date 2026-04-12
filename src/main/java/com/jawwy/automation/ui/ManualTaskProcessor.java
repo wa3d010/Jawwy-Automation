@@ -38,6 +38,8 @@ public class ManualTaskProcessor {
         }
     }
 
+
+
     public void processSharingLimitsTask(String orderId) {
         Future<?> taskToWaitFor;
 
@@ -70,6 +72,8 @@ public class ManualTaskProcessor {
         }
     }
 
+
+
     public static void shutdownAsyncWorker() {
         synchronized (ASYNC_LOCK) {
             if (activeTask != null) {
@@ -77,6 +81,7 @@ public class ManualTaskProcessor {
             }
             activeTask = null;
             activeOrderId = null;
+            browserInitialized = false; // Reset browser state
             if (executorService != null) {
                 executorService.shutdownNow();
             }
@@ -84,20 +89,39 @@ public class ManualTaskProcessor {
         }
     }
 
+
+    private static boolean browserInitialized = false;
+
     private void processSharingLimitsTaskInternal(String orderId, boolean asyncMode) {
-        PlaywrightManager.stop();
-        PlaywrightManager.start();
+        if (!browserInitialized) {
+            PlaywrightManager.start();
+            Page page = PlaywrightManager.page();
+
+            ActionLogger.step(LOGGER, "Opening EOC login page");
+            new LoginPage(page).login();
+
+            WorklistPage worklistPage = new WorklistPage(page);
+            ActionLogger.step(LOGGER, "Opening worklist management page");
+            worklistPage.open();
+
+            ActionLogger.step(LOGGER, "Opening tasks panel");
+            worklistPage.openTasksPanel();
+
+            browserInitialized = true;
+        } else {
+            // Browser already initialized and Tasks panel is already open
+            Page page = PlaywrightManager.page();
+            WorklistPage worklistPage = new WorklistPage(page);
+            ActionLogger.step(LOGGER, "Clearing previous search to load new order");
+
+            // Clear any existing order ID from search field
+            worklistPage.clearOrderSearch();
+        }
+
+
+
         Page page = PlaywrightManager.page();
-
-        ActionLogger.step(LOGGER, "Opening EOC login page");
-        new LoginPage(page).login();
-
         WorklistPage worklistPage = new WorklistPage(page);
-        ActionLogger.step(LOGGER, "Opening worklist management page");
-        worklistPage.open();
-
-        ActionLogger.step(LOGGER, "Opening tasks panel");
-        worklistPage.openTasksPanel();
 
         Locator row = waitForSharingLimitsRow(worklistPage, orderId);
         if (row == null || row.count() == 0) {

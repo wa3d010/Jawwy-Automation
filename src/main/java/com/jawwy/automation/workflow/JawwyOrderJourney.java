@@ -45,6 +45,8 @@ public class JawwyOrderJourney {
         return requireCreatedOrderId();
     }
 
+
+
     public String createOrder() throws Exception {
         createdOrderId = ordersApiClient.createNewActivationOrder();
         extractedLmdId = null;
@@ -166,6 +168,8 @@ public class JawwyOrderJourney {
         recordStep("Manual Task DB Verification", "FAILED");
         failManualTaskDbVerification(orderId);
     }
+
+
 
     public String getCreatedOrderId() {
         return createdOrderId;

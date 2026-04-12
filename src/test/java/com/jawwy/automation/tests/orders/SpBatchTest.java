@@ -1,5 +1,8 @@
 package com.jawwy.automation.tests.orders;
 
+import com.jawwy.automation.models.OrderContext;
+import com.jawwy.automation.reporting.ReportData;
+import com.jawwy.automation.reporting.ReportWriter;
 import com.jawwy.automation.tests.BaseEocTest;
 import com.jawwy.automation.workflow.JawwyOrderJourney;
 import io.qameta.allure.Allure;
@@ -51,6 +54,9 @@ public class SpBatchTest extends BaseEocTest {
         int requestedOrderCount = resolveRequestedOrderCount();
         List<ExecutionResult> results = new ArrayList<>();
 
+        // Create report data for new reporting system
+        ReportData reportData = new ReportData(orderFlow, requestedOrderCount, targetEnv);
+
         LOGGER.info(
                 "Starting SP batch: env={}, flow={}, requestedOrders={}",
                 targetEnv, orderFlow, requestedOrderCount
@@ -63,33 +69,61 @@ public class SpBatchTest extends BaseEocTest {
 
             try {
                 String orderId = journey.runFullFlow();
+                Duration executionDuration = Duration.between(startedAt, Instant.now());
 
                 ExecutionResult result = ExecutionResult.passed(
                         iteration,
                         startedAt,
-                        Duration.between(startedAt, Instant.now()),
+                        executionDuration,
                         orderId,
                         summarizeStepStatuses(journey)
                 );
 
                 results.add(result);
+
+                // Add to new report data
+                OrderContext ctx = new OrderContext(orderId, formatDuration(executionDuration));
+                for (String step : journey.getStepStatuses()) {
+                    String[] parts = step.split("=");
+                    if (parts.length == 2) {
+                        ctx.addStep(parts[0].trim(), parts[1].trim());
+                    }
+                }
+                reportData.addCompleted(ctx);
+
                 writeReports(requestedOrderCount, results);
 
             } catch (Exception ex) {
+                Duration executionDuration = Duration.between(startedAt, Instant.now());
 
                 ExecutionResult result = ExecutionResult.failed(
                         iteration,
                         startedAt,
-                        Duration.between(startedAt, Instant.now()),
+                        executionDuration,
                         journey.getCreatedOrderId(),
                         summarizeStepStatuses(journey) + " ; failure=" + summarizeFailure(ex)
                 );
 
                 results.add(result);
+
+                // Add to new report data
+                OrderContext ctx = new OrderContext(journey.getCreatedOrderId(), formatDuration(executionDuration));
+                for (String step : journey.getStepStatuses()) {
+                    String[] parts = step.split("=");
+                    if (parts.length == 2) {
+                        ctx.addStep(parts[0].trim(), parts[1].trim());
+                    }
+                }
+                ctx.setFailureReason(summarizeFailure(ex));
+                reportData.addFailed(ctx);
+
                 writeReports(requestedOrderCount, results);
                 throw ex;
             }
         }
+
+        // Generate new beautiful HTML and TXT reports
+        ReportWriter.write(reportData);
 
         Allure.addAttachment(
                 "Business Summary (SP Batch)",
@@ -559,6 +593,11 @@ public class SpBatchTest extends BaseEocTest {
 
     private String summarizeFailure(Exception ex) {
         return ex.getClass().getSimpleName() + ": " + ex.getMessage();
+    }
+
+    private String formatDuration(Duration duration) {
+        long millis = duration.toMillis();
+        return String.format("%.2fs", millis / 1000.0);
     }
 
     private String buildMarkdownSummary(int requestedOrderCount, List<ExecutionResult> results) {

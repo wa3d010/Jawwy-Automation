@@ -18,41 +18,53 @@ public class LoginPage {
     }
 
     public void login() {
-        page.navigate(config.uiBaseUrl() + "/" + config.applicationContext() + "/login");
+        String loginUrl = config.uiBaseUrl() + "/" + config.applicationContext() + "/login";
 
-        if (isWorklistVisible()) {
-            return;
+        if (!page.url().contains("/login")) {
+            page.navigate(loginUrl);
+            page.waitForLoadState();
         }
 
-        if (!waitForLoginForm()) {
-            if (isWorklistVisible()) {
-                return;
-            }
-            throw new IllegalStateException("Neither the login form nor the worklist page became visible after navigation.");
-        }
-
+        page.getByLabel("Username").waitFor(new Locator.WaitForOptions().setTimeout(LOGIN_FORM_TIMEOUT_MS));
         page.getByLabel("Username").fill(config.uiUsername());
+
+        page.getByLabel("Password").waitFor(new Locator.WaitForOptions().setTimeout(LOGIN_FORM_TIMEOUT_MS));
         page.getByLabel("Password").fill(config.uiPassword());
+
         page.keyboard().press("Enter");
         waitForPostLoginLanding();
+
+        if (!isWorklistVisible() && !isApplicationSelectionVisible()) {
+            throw new IllegalStateException("Login completed but the application did not reach an expected landing page.");
+        }
     }
 
     private void waitForPostLoginLanding() {
-        if (isWorklistVisible()) {
-            return;
-        }
+        long deadline = System.currentTimeMillis() + (long) LOGIN_TRANSITION_TIMEOUT_MS;
 
-        if (page.url().contains("/login")) {
-            try {
-                page.waitForURL("**/worklistManagement", new Page.WaitForURLOptions()
-                        .setTimeout(LOGIN_TRANSITION_TIMEOUT_MS));
-            } catch (PlaywrightException ignored) {
-                // Some environments stay on a login-looking URL but still navigate successfully afterward.
+        while (System.currentTimeMillis() < deadline) {
+            if (isWorklistVisible() || isApplicationSelectionVisible()) {
+                return;
             }
+            page.waitForTimeout(250L);
+        }
+    }
+
+    private boolean isApplicationSelectionVisible() {
+        try {
+            page.getByText("Application Selection").first()
+                    .waitFor(new Locator.WaitForOptions().setTimeout(2000));
+            return true;
+        } catch (PlaywrightException ignored) {
+            // Fall through to alternate checks.
         }
 
-        if (!isWorklistVisible() && waitForLoginForm()) {
-            throw new IllegalStateException("Login completed but the application did not navigate away from the login screen.");
+        try {
+            page.getByText("Worklist Management").first()
+                    .waitFor(new Locator.WaitForOptions().setTimeout(2000));
+            return true;
+        } catch (PlaywrightException ignored) {
+            return false;
         }
     }
 
