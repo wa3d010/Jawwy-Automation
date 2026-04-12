@@ -1,0 +1,24 @@
+<configuration>
+    <!--
+      Jenkins console should be business-focused and easy to scan.
+      Keep framework logs at INFO, suppress noisy third-party logs.
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss} %-5level %logger{24} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Framework logs -->
+    <logger name="com.jawwy.automation" level="INFO"/>
+
+    <!-- Reduce noise from dependencies -->
+    <logger name="org.apache" level="WARN"/>
+    <logger name="org.testng" level="WARN"/>
+    <logger name="io.restassured" level="WARN"/>
+    <logger name="com.microsoft.playwright" level="WARN"/>
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

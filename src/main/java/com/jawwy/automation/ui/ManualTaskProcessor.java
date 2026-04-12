@@ -108,7 +108,8 @@ public class ManualTaskProcessor {
         worklistPage.startWork(row);
         ActionLogger.step(LOGGER, "Task started successfully");
         worklistPage.skipTask(row);
-        ActionLogger.step(LOGGER, "Task skipped successfully");
+        // UI feedback is not always reliable (toasts can be missing). Backend DB verification is the source of truth.
+        ActionLogger.step(LOGGER, "Skip action clicked in UI");
 
         if (asyncMode) {
             LOGGER.info("Asynchronous manual task worker completed for order {}", orderId);

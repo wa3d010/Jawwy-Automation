@@ -41,12 +41,11 @@ public class OrderMessageRepository {
                 "FROM EOC.CWMESSAGELOG WHERE order_id = ?";
 
         try (Connection connection = connect()) {
+            ActionLogger.step(LOGGER, "Waiting for LMD ID in DB for order " + orderId);
             Thread.sleep(config.lmdInitialDelayMs());
 
             for (int attempt = 1; attempt <= config.lmdRetries(); attempt++) {
-                if (attempt == 1 || attempt == config.lmdRetries() || attempt % 3 == 0) {
-                    LOGGER.info("Looking for LMD ID, attempt {}/{}", attempt, config.lmdRetries());
-                }
+                LOGGER.debug("Looking for LMD ID, attempt {}/{}", attempt, config.lmdRetries());
 
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     statement.setString(1, orderId);
@@ -84,7 +83,7 @@ public class OrderMessageRepository {
                 "FROM EOC.CWMESSAGELOG WHERE order_id = ? AND stepname LIKE '%ESB_070%'";
 
         try (Connection connection = connect()) {
-            ActionLogger.step(LOGGER, "Reading current Comptel IDs from DB");
+            LOGGER.debug("Reading current Comptel IDs from DB for order {}", orderId);
 
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, orderId);

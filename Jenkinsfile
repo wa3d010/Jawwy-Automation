@@ -3,11 +3,46 @@ pipeline {
 
     parameters {
         choice(name: 'TARGET_ENV', choices: ['local', 'sit', 'uat'], description: 'Environment to execute against')
-        string(name: 'ORDER_COUNT', defaultValue: '1', description: 'How many new activation orders should the SP flow create?')
+        choice(name: 'ORDER_FLOW', choices: [
+                'New Activation Online',
+                'New Activation eSIM',
+                'New Activation Offline',
+                'Self Activation Offline',
+                'MNP Port In Online',
+                'MNP Port In eSIM',
+                'MNP Port In Offline',
+                'Self Port In Offline',
+                'MNP Port Out',
+                'Transfer of Ownership Offline',
+                'Transfer of Ownership Online',
+                'Transfer Balance',
+                'Transfer Subscription',
+                'Transfer Account',
+                'Configure Subscription',
+                'Resume Subscription',
+                'Suspend Subscription',
+                'Terminate Subscription',
+                'Terminate Account',
+                'Delete Subscription',
+                'SIM Swap Online',
+                'eSIM Swap Online',
+                'SIM Swap Offline',
+                'Set Sharing Limits',
+                'Recharge',
+                'Edit SIM Alias',
+                'Set Recurrence',
+                'Upgrade / Downgrade',
+                'Renewal',
+                'Privacy Settings',
+                'Set Usage Restriction',
+                'Set Wallet Sharing'
+        ], description: 'Which order flow should be executed? (Selection is captured and passed through only; no routing yet)')
+        string(name: 'ORDER_COUNT', defaultValue: '1', description: 'How many orders should this flow create?')
     }
 
     environment {
         JAWWY_ENV = "${params.TARGET_ENV}"
+        ORDER_FLOW = "${params.ORDER_FLOW}"
         JAWWY_API_BASE_URL = credentials('jawwy-api-base-url')
         JAWWY_UI_BASE_URL = credentials('jawwy-ui-base-url')
         JAWWY_UI_USERNAME = credentials('jawwy-ui-username')
@@ -26,7 +61,14 @@ pipeline {
 
         stage('Run SP Batch Flow') {
             steps {
-                bat 'mvn -q clean test -Denv=%TARGET_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dbatch.mode=true'
+                echo "Business Flow: ${params.ORDER_FLOW} | Env: ${params.TARGET_ENV} | Order Count: ${params.ORDER_COUNT}"
+                bat 'mvn -q clean test -Denv=%TARGET_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow=\"%ORDER_FLOW%\" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml'
+            }
+        }
+
+        stage('Business Summary') {
+            steps {
+                bat 'if exist target\\jenkins\\sp-batch-summary.md (type target\\jenkins\\sp-batch-summary.md) else (echo No batch summary found.)'
             }
         }
     }

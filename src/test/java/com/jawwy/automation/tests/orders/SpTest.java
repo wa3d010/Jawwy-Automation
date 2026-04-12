@@ -2,9 +2,11 @@ package com.jawwy.automation.tests.orders;
 
 import com.jawwy.automation.tests.BaseEocTest;
 import com.jawwy.automation.workflow.JawwyOrderJourney;
+import io.qameta.allure.Allure;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
@@ -14,6 +16,7 @@ import org.testng.annotations.Test;
 public class SpTest extends BaseEocTest {
 
     private final JawwyOrderJourney journey = new JawwyOrderJourney();
+    private final String orderFlow = resolveOrderFlow();
 
     @BeforeClass(alwaysRun = true)
     public void skipDuringBatchMode() {
@@ -56,5 +59,24 @@ public class SpTest extends BaseEocTest {
     @Feature("Manual Task")
     public void handleManualTaskUI() {
         journey.handleManualTask();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void attachBusinessSummary() {
+        String orderId = journey.getCreatedOrderId();
+        String steps = String.join(" ; ", journey.getStepStatuses());
+        String markdown = "# SP Flow Summary\n\n"
+                + "- Order flow: " + orderFlow + "\n"
+                + "- Order ID: " + (orderId == null ? "-" : orderId) + "\n"
+                + "- Steps: " + (steps.isBlank() ? "-" : steps) + "\n";
+        Allure.addAttachment("Business Summary (SP)", "text/markdown", markdown);
+    }
+
+    private String resolveOrderFlow() {
+        String flow = System.getProperty("order.flow");
+        if (flow == null || flow.trim().isEmpty()) {
+            flow = System.getenv("ORDER_FLOW");
+        }
+        return (flow == null || flow.trim().isEmpty()) ? "New Activation Online" : flow.trim();
     }
 }

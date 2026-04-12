@@ -2,6 +2,7 @@ package com.jawwy.automation.tests.orders;
 
 import com.jawwy.automation.tests.BaseEocTest;
 import com.jawwy.automation.workflow.JawwyOrderJourney;
+import io.qameta.allure.Allure;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import org.slf4j.Logger;
@@ -28,6 +29,7 @@ public class SpBatchTest extends BaseEocTest {
     private static final Path REPORT_DIRECTORY = Paths.get("target", "jenkins");
     private static final Path SUMMARY_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.md");
     private static final Path CSV_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.csv");
+    private final String orderFlow = resolveOrderFlow();
 
     @BeforeClass(alwaysRun = true)
     public void skipOutsideBatchMode() {
@@ -41,6 +43,8 @@ public class SpBatchTest extends BaseEocTest {
     public void runBatch() throws Exception {
         int requestedOrderCount = resolveRequestedOrderCount();
         List<ExecutionResult> results = new ArrayList<>();
+
+        LOGGER.info("Starting SP batch: flow={}, requestedOrders={}", orderFlow, requestedOrderCount);
 
         for (int iteration = 1; iteration <= requestedOrderCount; iteration++) {
             JawwyOrderJourney journey = new JawwyOrderJourney();
@@ -84,6 +88,7 @@ public class SpBatchTest extends BaseEocTest {
         }
 
         logBatchSummary(results);
+        Allure.addAttachment("Business Summary (SP Batch)", "text/markdown", buildMarkdownSummary(requestedOrderCount, results));
         LOGGER.info("SP batch finished successfully. Summary report: {}", SUMMARY_REPORT.toAbsolutePath());
     }
 
@@ -142,6 +147,7 @@ public class SpBatchTest extends BaseEocTest {
 
         StringBuilder builder = new StringBuilder();
         builder.append("# SP Batch Summary").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("- Order flow: ").append(orderFlow).append(System.lineSeparator());
         builder.append("- Requested orders: ").append(requestedOrderCount).append(System.lineSeparator());
         builder.append("- Executed iterations: ").append(results.size()).append(System.lineSeparator());
         builder.append("- Passed: ").append(passedCount).append(System.lineSeparator());
@@ -214,6 +220,14 @@ public class SpBatchTest extends BaseEocTest {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String resolveOrderFlow() {
+        String flow = System.getProperty("order.flow");
+        if (isBlank(flow)) {
+            flow = System.getenv("ORDER_FLOW");
+        }
+        return isBlank(flow) ? "New Activation Online" : flow.trim();
     }
 
     private static final class ExecutionResult {

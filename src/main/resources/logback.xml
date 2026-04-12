@@ -18,6 +18,12 @@
         </encoder>
     </appender>
 
+    <!-- Reduce noise from dependencies during local runs -->
+    <logger name="org.apache" level="WARN"/>
+    <logger name="org.testng" level="WARN"/>
+    <logger name="io.restassured" level="WARN"/>
+    <logger name="com.microsoft.playwright" level="WARN"/>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
