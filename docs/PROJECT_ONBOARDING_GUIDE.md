@@ -25,7 +25,7 @@ In simple terms, it behaves like an automated operator that:
 5. finishes the required manual task
 
 This is not the business application itself.
-It is a test/integration automation project that talks to the real system under test.
+It is a test automation project that talks to the real system under test.
 
 ---
 
@@ -33,7 +33,7 @@ It is a test/integration automation project that talks to the real system under 
 
 The project is organized in layers.
 
-```text
+```
 Tests
   |
   v
@@ -392,14 +392,6 @@ If you are new, read the project in this order:
 
 ## 8. Tester-Focused Risk Map
 
-These are the most fragile areas in the current project:
-
-### Environment/config risks
-
-- wrong `env` selection
-- placeholder SIT/UAT config
-- localhost assumptions
-- Jenkins credentials mismatch
 
 ### API timing risks
 
