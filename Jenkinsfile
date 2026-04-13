@@ -81,8 +81,15 @@ pipeline {
         stage('Publish Reports') {
             steps {
                 // Keep artifacts available in Jenkins without showing technical steps in the stage graph.
-                archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,target/execution-report.*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
                 junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+
+                // Publish HTML report for easy viewing in Jenkins UI
+                publishHTML([
+                    reportDir: 'target',
+                    reportFiles: 'execution-report.html',
+                    reportName: 'Execution Report'
+                ])
             }
         }
     }
