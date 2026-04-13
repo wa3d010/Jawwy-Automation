@@ -123,33 +123,55 @@ public class HtmlReportBuilder {
     /* ================= STEPS ================= */
 
     private static String stepsExpander(OrderContext ctx, int index, String prefix) {
-        if (ctx.getStepLog().isEmpty()) return "-";
-        String id = "steps-" + prefix + index;
-        StringBuilder steps = new StringBuilder();
+    if (ctx.getStepLog().isEmpty()) return "-";
 
-        for (OrderContext.StepExecution step : ctx.getStepLog()) {
+    String id = "steps-" + prefix + index;
+    StringBuilder steps = new StringBuilder();
 
-            // ✅ FIXED LOGIC
-            boolean success = step.getStatus() != null &&
-                    (step.getStatus().equalsIgnoreCase("PASSED")
-                  || step.getStatus().equalsIgnoreCase("SUCCESS"));
+    for (OrderContext.StepExecution step : ctx.getStepLog()) {
 
-            String icon = success ? "✅" : "❌";
-            String bg   = success ? "#EAF3DE" : "#FCEBEB";
-            String fg   = success ? "#3B6D11" : "#A32D2D";
+        boolean success = step.getStatus() != null &&
+                (step.getStatus().equalsIgnoreCase("PASSED")
+              || step.getStatus().equalsIgnoreCase("SUCCESS"));
 
-            steps.append("<div style='display:flex;justify-content:space-between;padding:8px'>")
-                 .append("<span>").append(icon).append(" ").append(step.getStepName()).append("</span>")
-                 .append("<span style='background:").append(bg).append(";color:").append(fg)
-                 .append(";padding:2px 8px;border-radius:10px'>")
-                 .append(step.getStatus()).append("</span>")
-                 .append("</div>");
-        }
+        String icon = success ? "✅" : "❌";
+        String bg   = success ? "#EAF3DE" : "#FCEBEB";
+        String fg   = success ? "#3B6D11" : "#A32D2D";
 
-        return "<button onclick=\"var d=document.getElementById('" + id + "');"
-                + "d.style.display=d.style.display==='none'?'block':'none'\">View Steps</button>"
-                + "<div id='" + id + "' style='display:none'>" + steps + "</div>";
+        steps.append("<div style='display:flex;justify-content:space-between;"
+                + "align-items:center;padding:8px 12px;border-bottom:1px solid #f0f0f0;"
+                + "font-size:12px'>")
+             .append("<span>").append(icon).append(" ").append(step.getStepName()).append("</span>")
+             .append("<span style='background:").append(bg)
+             .append(";color:").append(fg)
+             .append(";padding:2px 8px;border-radius:10px;font-weight:600'>")
+             .append(step.getStatus()).append("</span>")
+             .append("</div>");
     }
+
+    return
+        // ✅ Styled Expand button
+        "<button onclick=\"var d=document.getElementById('" + id + "');"
+      + "d.style.display=d.style.display==='none'?'block':'none'\""
+      + " style='background:#f8f9fa;"
+      + "border:1px solid #dcdcdc;"
+      + "color:#1a1a2e;"
+      + "border-radius:999px;"
+      + "padding:6px 14px;"
+      + "font-size:12px;"
+      + "font-weight:600;"
+      + "cursor:pointer;"
+      + "transition:all .15s ease'>"
+      + "Expand</button>"
+
+      // ✅ Steps container
+      + "<div id='" + id + "' style='display:none;margin-top:10px;"
+      + "border:1px solid #e8e8e8;border-radius:10px;"
+      + "overflow:hidden;background:white'>"
+      + steps
+      + "</div>";
+}
+
 
     /* ================= TIMELINE ================= */
 
