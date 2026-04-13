@@ -11,8 +11,10 @@ public class HtmlReportBuilder {
         int failed    = data.getFailed().size();
         int rate      = total > 0 ? (completed * 100 / total) : 0;
 
-        return "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Jawwy Report</title></head>"
-                + "<body style='font-family:Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:24px;margin:0'>"
+        return "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Jawwy Report</title>"
+                + getStyles()
+                + "</head>"
+                + "<body>"
                 + header(data)
                 + statsGrid(total, completed, failed, rate)
                 + progressSection(completed, failed, rate)
@@ -23,18 +25,62 @@ public class HtmlReportBuilder {
                 + "</body></html>";
     }
 
+    private static String getStyles() {
+        return "<style>"
+                + "* { box-sizing: border-box; }"
+                + "body { font-family: Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 24px; margin: 0; }"
+                + ".header { background: #1a1a2e; color: white; padding: 28px 32px; border-radius: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }"
+                + ".header-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }"
+                + ".header-time { font-size: 13px; opacity: 0.7; }"
+                + ".badge { display: inline-flex; gap: 10px; align-items: center; }"
+                + ".flow-badge { background: rgba(255,255,255,0.15); color: white; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }"
+                + ".env-badge { background: #185FA5; color: white; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }"
+                + ".grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }"
+                + ".stat-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e8e8e8; }"
+                + ".stat-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }"
+                + ".stat-value { font-size: 32px; font-weight: 700; line-height: 1; margin: 0; }"
+                + ".progress-section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e8e8e8; }"
+                + ".progress-bar { background: #f0f2f5; border-radius: 99px; height: 12px; overflow: hidden; margin-bottom: 8px; }"
+                + ".progress-fill { height: 100%; border-radius: 99px; background: #3B6D11; }"
+                + ".table-section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e8e8e8; }"
+                + ".table-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }"
+                + ".status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }"
+                + ".success-dot { background: #3B6D11; }"
+                + ".fail-dot { background: #A32D2D; }"
+                + "table { width: 100%; border-collapse: collapse; font-size: 13px; }"
+                + "th { color: #666; font-weight: 600; padding: 10px 14px; text-align: left; font-size: 12px; text-transform: uppercase; background: #f8f9fa; }"
+                + "td { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; }"
+                + "tr:hover { background: #f9fafb; }"
+                + ".status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }"
+                + ".success { background: #EAF3DE; color: #3B6D11; }"
+                + ".failure { background: #FCEBEB; color: #A32D2D; }"
+                + ".view-steps-btn { background: #f0f2f5; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }"
+                + ".steps-detail { display: none; margin-top: 8px; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; }"
+                + ".step-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }"
+                + ".timeline-section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e8e8e8; }"
+                + ".timeline-item { display: flex; gap: 16px; padding: 14px 0; border-bottom: 1px solid #f0f0f0; }"
+                + ".timeline-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }"
+                + ".timeline-success { background: #EAF3DE; color: #3B6D11; }"
+                + ".timeline-failure { background: #FCEBEB; color: #A32D2D; }"
+                + ".timeline-content-title { font-size: 14px; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }"
+                + ".timeline-content-info { font-size: 12px; color: #888; }"
+                + ".timeline-content-error { font-size: 12px; color: #A32D2D; margin-top: 4px; }"
+                + ".footer { text-align: center; font-size: 12px; color: #aaa; margin-top: 8px; }"
+                + "</style>";
+    }
+
     private static String header(ReportData data) {
-        return "<div style='background:#1a1a2e;color:white;padding:28px 32px;border-radius:12px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center'>"
-                + "<div><div style='font-size:22px;font-weight:700;margin-bottom:4px'>Jawwy Automation Report</div>"
-                + "<div style='font-size:13px;opacity:0.7'>Generated: " + data.getTimestamp() + "</div></div>"
-                + "<div style='display:flex;gap:10px;align-items:center'>"
-                + "<span style='background:rgba(255,255,255,0.15);color:white;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600'>" + data.getFlow() + "</span>"
-                + "<span style='background:#185FA5;color:white;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600'>" + data.getEnvironment() + "</span>"
+        return "<div class='header'>"
+                + "<div><div class='header-title'>Jawwy Automation Report</div>"
+                + "<div class='header-time'>Generated: " + data.getTimestamp() + "</div></div>"
+                + "<div class='badge'>"
+                + "<span class='flow-badge'>" + data.getFlow() + "</span>"
+                + "<span class='env-badge'>" + data.getEnvironment() + "</span>"
                 + "</div></div>";
     }
 
     private static String statsGrid(int total, int completed, int failed, int rate) {
-        return "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px'>"
+        return "<div class='grid'>"
                 + statCard(String.valueOf(total),     "Total Runs",   "Requested runs",    "#185FA5")
                 + statCard(String.valueOf(completed), "Completed",    "Successfully done", "#3B6D11")
                 + statCard(String.valueOf(failed),    "Failed",       "Needs attention",   "#A32D2D")
@@ -43,18 +89,18 @@ public class HtmlReportBuilder {
     }
 
     private static String statCard(String value, String label, String sub, String color) {
-        return "<div style='background:white;border-radius:12px;padding:20px;border:1px solid #e8e8e8'>"
-                + "<div style='font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px'>" + label + "</div>"
-                + "<div style='font-size:32px;font-weight:700;line-height:1;color:" + color + "'>" + value + "</div>"
-                + "<div style='font-size:12px;color:#888;margin-top:6px'>" + sub + "</div>"
+        return "<div class='stat-card'>"
+                + "<div class='stat-label'>" + label + "</div>"
+                + "<div class='stat-value' style='color:" + color + "'>" + value + "</div>"
+                + "<div class='stat-label' style='margin-top:6px'>" + sub + "</div>"
                 + "</div>";
     }
 
     private static String progressSection(int completed, int failed, int rate) {
-        return "<div style='background:white;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #e8e8e8'>"
-                + "<div style='font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px'>Execution progress</div>"
-                + "<div style='background:#f0f2f5;border-radius:99px;height:12px;overflow:hidden;margin-bottom:8px'>"
-                + "<div style='width:" + rate + "%;height:100%;border-radius:99px;background:#3B6D11'></div></div>"
+        return "<div class='progress-section'>"
+                + "<div class='stat-label'>Execution progress</div>"
+                + "<div class='progress-bar'>"
+                + "<div class='progress-fill' style='width:" + rate + "%'></div></div>"
                 + "<div style='display:flex;justify-content:space-between;font-size:12px'>"
                 + "<span style='color:#3B6D11;font-weight:600'>" + completed + " completed</span>"
                 + "<span style='color:#888'>" + failed + " failed</span>"
