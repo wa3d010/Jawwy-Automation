@@ -88,7 +88,10 @@ pipeline {
                 publishHTML([
                     reportDir: 'target',
                     reportFiles: 'execution-report.html',
-                    reportName: 'Execution Report'
+                    reportName: 'Execution Report',
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true
                 ])
             }
         }
