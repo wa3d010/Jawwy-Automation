@@ -12,15 +12,21 @@ public class ReportData {
     private final int    runs;
     private final String timestamp;
     private final String environment;
+    private final String allureReportUrl;
 
     private final List<OrderContext> completedOrders = new ArrayList<>();
     private final List<OrderContext> failedOrders    = new ArrayList<>();
 
     public ReportData(String flow, int runs, String environment) {
-        this.flow        = flow;
-        this.runs        = runs;
-        this.environment = environment;
-        this.timestamp   = LocalDateTime.now()
+        this(flow, runs, environment, "");
+    }
+
+    public ReportData(String flow, int runs, String environment, String allureReportUrl) {
+        this.flow            = flow;
+        this.runs            = runs;
+        this.environment     = environment;
+        this.allureReportUrl = isNotBlank(allureReportUrl) ? allureReportUrl.trim() : "";
+        this.timestamp       = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
@@ -31,6 +37,11 @@ public class ReportData {
     public int getRuns()           { return runs;            }
     public String getTimestamp()   { return timestamp;       }
     public String getEnvironment() { return environment;     }
+    public String getAllureReportUrl() { return allureReportUrl; }
     public List<OrderContext> getCompleted()  { return completedOrders; }
     public List<OrderContext> getFailed()     { return failedOrders;    }
+
+    private static boolean isNotBlank(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
 }

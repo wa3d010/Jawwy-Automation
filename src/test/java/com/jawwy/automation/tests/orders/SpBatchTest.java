@@ -55,7 +55,7 @@ public class SpBatchTest extends BaseEocTest {
         List<ExecutionResult> results = new ArrayList<>();
 
         // Create report data for new reporting system
-        ReportData reportData = new ReportData(orderFlow, requestedOrderCount, targetEnv);
+        ReportData reportData = new ReportData(orderFlow, requestedOrderCount, targetEnv, resolveAllureReportUrl());
 
         LOGGER.info(
                 "Starting SP batch: env={}, flow={}, requestedOrders={}",
@@ -142,6 +142,36 @@ public class SpBatchTest extends BaseEocTest {
         Files.writeString(CSV_REPORT, buildCsvSummary(results));
         Files.writeString(DASHBOARD_CSS, buildDashboardCss());
         Files.writeString(DASHBOARD_INDEX, buildHtmlDashboard(requestedOrderCount, results));
+    }
+
+    private String resolveAllureReportUrl() {
+        String customUrl = System.getProperty("allure.report.url");
+        if (isNotBlank(customUrl)) {
+            return customUrl.trim();
+        }
+
+        String envUrl = System.getenv("ALLURE_REPORT_URL");
+        if (isNotBlank(envUrl)) {
+            return envUrl.trim();
+        }
+
+        if (Files.exists(Paths.get("target", "allure-report", "index.html"))) {
+            return "allure-report/index.html";
+        }
+
+        if (Files.exists(Paths.get("target", "site", "allure-maven-plugin", "index.html"))) {
+            return "site/allure-maven-plugin/index.html";
+        }
+
+        if (Files.exists(Paths.get("target", "allure-results"))) {
+            return "allure-results";
+        }
+
+        return "";
+    }
+
+    private static boolean isNotBlank(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     /* ================= Dashboard ================= */

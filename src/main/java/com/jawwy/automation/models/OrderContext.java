@@ -8,7 +8,7 @@ public class OrderContext {
     private String orderId;
     private String runDuration;
     private String failureReason;
-    private final List<String[]> stepLog = new ArrayList<>();
+    private final List<StepExecution> stepLog = new ArrayList<>();
 
     public OrderContext(String orderId, String runDuration) {
         this.orderId = orderId;
@@ -17,7 +17,11 @@ public class OrderContext {
     }
 
     public void addStep(String stepName, String status) {
-        stepLog.add(new String[]{stepName, status});
+        addStep(stepName, status, "0ms");
+    }
+
+    public void addStep(String stepName, String status, String duration) {
+        stepLog.add(new StepExecution(stepName, status, duration));
     }
 
     public void setFailureReason(String reason) {
@@ -36,7 +40,7 @@ public class OrderContext {
         return failureReason;
     }
 
-    public List<String[]> getStepLog() {
+    public List<StepExecution> getStepLog() {
         return stepLog;
     }
 
@@ -46,5 +50,22 @@ public class OrderContext {
 
     public void setRunDuration(String runDuration) {
         this.runDuration = runDuration;
+    }
+
+    // Inner class for step execution details
+    public static class StepExecution {
+        private final String stepName;
+        private final String status;
+        private final String duration;
+
+        public StepExecution(String stepName, String status, String duration) {
+            this.stepName = stepName;
+            this.status = status;
+            this.duration = duration;
+        }
+
+        public String getStepName() { return stepName; }
+        public String getStatus() { return status; }
+        public String getDuration() { return duration; }
     }
 }
