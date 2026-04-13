@@ -7,7 +7,7 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'TARGET_ENV', choices: ['Testing environment'], description: 'Environment to execute against')
+        choice(name: 'TARGET_ENV', choices: ['Testing environment', 'Pre Production environment','Upgrade environment'], description: 'Environment to execute against')
         choice(name: 'ORDER_FLOW', choices: [
                 'New Activation Online',
                 'New Activation eSIM',
