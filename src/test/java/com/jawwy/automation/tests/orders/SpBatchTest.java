@@ -64,7 +64,7 @@ public class SpBatchTest extends BaseEocTest {
 
         for (int iteration = 1; iteration <= requestedOrderCount; iteration++) {
 
-            JawwyOrderJourney journey = new JawwyOrderJourney();
+            JawwyOrderJourney journey = new JawwyOrderJourney(orderFlow);
             Instant startedAt = Instant.now();
 
             try {

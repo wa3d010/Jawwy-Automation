@@ -14,7 +14,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
 import static io.restassured.RestAssured.given;
 
 public class OrdersApiClient extends ApiSupport {
@@ -23,9 +22,31 @@ public class OrdersApiClient extends ApiSupport {
 
     @Step("Create Jawwy activation order")
     public String createNewActivationOrder() {
-        ActionLogger.step(LOGGER, "Loading NewAct-Online order payload");
+        return createOrderByPayload("payloads/orders/NewAct-Online.json");
+    }
 
-        String template = PayloadLoader.load("payloads/orders/NewAct-Online.json");
+    @Step("Create MNP Port In Offline order")
+    public String createMnpPortInOfflineOrder() {
+        return createOrderByPayload("payloads/orders/MNP-IN-Off.json");
+    }
+
+    public String createOrderByFlow(String orderFlow) {
+        String payloadPath = isMnpFlow(orderFlow)
+                ? "payloads/orders/MNP-IN-Off.json"
+                : "payloads/orders/NewAct-Online.json";
+
+        return createOrderByPayload(payloadPath);
+    }
+
+    private boolean isMnpFlow(String orderFlow) {
+        return orderFlow != null && orderFlow.toLowerCase().contains("mnp");
+    }
+
+    @Step("Create order through EOC order API")
+    private String createOrderByPayload(String payloadPath) {
+        ActionLogger.step(LOGGER, "Loading order payload: " + payloadPath);
+
+        String template = PayloadLoader.load(payloadPath);
         String shoppingCartId = UUID.randomUUID().toString();
         ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
         ZonedDateTime requestStart = nowUtc.minusMinutes(5).truncatedTo(ChronoUnit.MILLIS);

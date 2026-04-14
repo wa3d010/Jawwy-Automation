@@ -60,7 +60,7 @@ public final class FrameworkConfig {
         if (isNotBlank(systemValue)) {
             return systemValue.trim();
         }
-
+//Config might change between runs or You want a fresh configuration state
         String environmentValue = System.getenv("JAWWY_ENV");
         if (isNotBlank(environmentValue)) {
             return environmentValue.trim();
@@ -229,6 +229,10 @@ public final class FrameworkConfig {
         return getRequired("api.base-url");
     }
 
+    public String mnpCallbackBaseUrl() {
+        return getRequired("mnp.callback.base-url");
+    }
+
     public String uiBaseUrl() {
         return getRequired("ui.base-url");
     }
@@ -255,11 +259,6 @@ public final class FrameworkConfig {
 
     public boolean browserHeadless() {
         return Boolean.parseBoolean(getRequired("browser.headless"));
-    }
-
-    public boolean attachTechnicalReportDetails() {
-        String value = properties.getProperty("report.attach.technical", "false");
-        return Boolean.parseBoolean(value.trim());
     }
 
     public long browserWarmupDelayMs() {
@@ -314,24 +313,20 @@ public final class FrameworkConfig {
         return getLong("workflow.provisioning.retry-interval-ms");
     }
 
+    public int mnpAckRetries() {
+        return getInt("workflow.mnp.ack.retries");
+    }
+
+    public long mnpAckRetryIntervalMs() {
+        return getLong("workflow.mnp.ack.retry-interval-ms");
+    }
+
     public long manualTaskTimeoutMs() {
         return getLong("workflow.manual-task.timeout-ms");
     }
 
     public long manualTaskPollIntervalMs() {
         return getLong("workflow.manual-task.poll-interval-ms");
-    }
-
-    public long manualTaskVerificationTimeoutMs() {
-        return getLong("workflow.manual-task.verification-timeout-ms");
-    }
-
-    public long manualTaskVerificationPollIntervalMs() {
-        return getLong("workflow.manual-task.verification-poll-interval-ms");
-    }
-
-    public int manualTaskUiAttempts() {
-        return getInt("workflow.manual-task.ui-attempts");
     }
 
     public long uiPostLoginDelayMs() {
@@ -344,6 +339,22 @@ public final class FrameworkConfig {
 
     public long uiActionDelayMs() {
         return getLong("ui.action-delay-ms");
+    }
+
+    public boolean attachTechnicalReportDetails() {
+        return Boolean.parseBoolean(properties.getProperty("report.attach.technical", "false"));
+    }
+
+    public int manualTaskUiAttempts() {
+        return getInt("workflow.manual-task.ui-attempts");
+    }
+
+    public long manualTaskVerificationTimeoutMs() {
+        return getLong("workflow.manual-task.verification-timeout-ms");
+    }
+
+    public long manualTaskVerificationPollIntervalMs() {
+        return getLong("workflow.manual-task.verification-poll-interval-ms");
     }
 
     private int getInt(String key) {

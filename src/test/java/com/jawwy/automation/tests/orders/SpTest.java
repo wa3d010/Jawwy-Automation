@@ -15,8 +15,8 @@ import org.testng.annotations.Test;
 @Epic("EOC Automation")
 public class SpTest extends BaseEocTest {
 
-    private final JawwyOrderJourney journey = new JawwyOrderJourney();
-    private final String orderFlow = resolveOrderFlow();
+    private final JawwyOrderJourney journey = new JawwyOrderJourney(resolveOrderFlow());
+    private final String orderFlow = journey.getOrderFlow();
 
     @BeforeClass(alwaysRun = true)
     public void skipDuringBatchMode() {

@@ -4,6 +4,7 @@ import com.jawwy.automation.api.OrdersApiClient;
 import com.jawwy.automation.api.callbacks.BiometricsClient;
 import com.jawwy.automation.api.callbacks.ComptelCallbackClient;
 import com.jawwy.automation.api.callbacks.LmdCallbackClient;
+import com.jawwy.automation.api.callbacks.MnpAckCallbackClient;
 import com.jawwy.automation.api.callbacks.ProvisioningCallbackClient;
 import com.jawwy.automation.config.FrameworkConfig;
 import com.jawwy.automation.db.OrderMessageRepository;
@@ -26,29 +27,47 @@ public class JawwyOrderJourney {
     private final OrdersApiClient ordersApiClient = new OrdersApiClient();
     private final BiometricsClient biometricsClient = new BiometricsClient();
     private final LmdCallbackClient lmdCallbackClient = new LmdCallbackClient();
+    private final MnpAckCallbackClient mnpAckCallbackClient = new MnpAckCallbackClient();
     private final ComptelCallbackClient comptelCallbackClient = new ComptelCallbackClient();
     private final ProvisioningCallbackClient provisioningCallbackClient = new ProvisioningCallbackClient();
     private final OrderMessageRepository orderMessageRepository = new OrderMessageRepository();
     private final ManualTaskProcessor manualTaskProcessor = new ManualTaskProcessor();
 
+    private String orderFlow;
     private String createdOrderId;
     private String extractedLmdId;
     private final List<String> stepStatuses = new ArrayList<>();
+
+    public JawwyOrderJourney() {
+        this.orderFlow = resolveOrderFlow();
+    }
+
+    public JawwyOrderJourney(String orderFlow) {
+        this.orderFlow = orderFlow != null ? orderFlow : resolveOrderFlow();
+    }
 
     public String runFullFlow() throws Exception {
         createOrder();
         sendBiometrics();
         sendLmd106();
+        
+        // MNP-specific flow
+        if (isMnpFlow()) {
+            sendMnpAck();
+        }
+        
         sendComptelCallbacks();
         sendProvisioningIfAvailable();
         handleManualTask();
         return requireCreatedOrderId();
     }
 
-
-
     public String createOrder() throws Exception {
-        createdOrderId = ordersApiClient.createNewActivationOrder();
+        if (isMnpFlow()) {
+            createdOrderId = ordersApiClient.createMnpPortInOfflineOrder();
+        } else {
+            createdOrderId = ordersApiClient.createNewActivationOrder();
+        }
         extractedLmdId = null;
         recordStep("Create Order", "PASSED");
         return createdOrderId;
@@ -63,7 +82,7 @@ public class JawwyOrderJourney {
     public void sendLmd106() {
         if (extractedLmdId == null) {
             try {
-                extractedLmdId = orderMessageRepository.extractLmdId(requireCreatedOrderId());
+                extractedLmdId = orderMessageRepository.extractLmdId(requireCreatedOrderId(), orderFlow);
             } catch (Exception exception) {
                 throw new IllegalStateException("Unable to resolve LMD ID for order " + requireCreatedOrderId(), exception);
             }
@@ -179,6 +198,10 @@ public class JawwyOrderJourney {
         return extractedLmdId;
     }
 
+    public String getOrderFlow() {
+        return orderFlow;
+    }
+
     public List<String> getStepStatuses() {
         return List.copyOf(stepStatuses);
     }
@@ -238,5 +261,40 @@ public class JawwyOrderJourney {
         if (!stepStatuses.contains(entry)) {
             stepStatuses.add(entry);
         }
+    }
+
+    public void sendMnpAck() {
+        if (isMnpFlow()) {
+            String portReqFormId = null;
+            try {
+                portReqFormId = orderMessageRepository.extractPortReqFormId(requireCreatedOrderId());
+            } catch (Exception exception) {
+                throw new IllegalStateException("Unable to resolve portReqFormID for MNP order " + requireCreatedOrderId(), exception);
+            }
+
+            if (portReqFormId == null) {
+                recordStep("MNP-Ack Callback", "FAILED");
+                throw ActionLogger.failure(LOGGER, "portReqFormID was not found for MNP order " + requireCreatedOrderId());
+            }
+
+            ActionLogger.step(LOGGER, "Resolved portReqFormID " + portReqFormId + " for MNP order " + requireCreatedOrderId());
+            recordStep("Resolve portReqFormID", "PASSED");
+            
+            mnpAckCallbackClient.send(portReqFormId);
+            ActionLogger.step(LOGGER, "MNP-Ack callback completed");
+            recordStep("MNP-Ack Callback", "PASSED");
+        }
+    }
+
+    private boolean isMnpFlow() {
+        return orderFlow != null && orderFlow.toLowerCase().contains("mnp");
+    }
+
+    private String resolveOrderFlow() {
+        String flow = System.getProperty("order.flow");
+        if (flow == null || flow.trim().isEmpty()) {
+            flow = System.getenv("ORDER_FLOW");
+        }
+        return (flow == null || flow.trim().isEmpty()) ? "New Activation Online" : flow.trim();
     }
 }

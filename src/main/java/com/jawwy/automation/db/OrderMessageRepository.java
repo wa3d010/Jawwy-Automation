@@ -28,11 +28,19 @@ public class OrderMessageRepository {
     }
 
     public String extractLmdId(String orderId) throws Exception {
+        return extractLmdId(orderId, null);
+    }
+
+    public String extractLmdId(String orderId, String orderFlow) throws Exception {
         String sql = "SELECT stepname, utl_raw.cast_to_varchar2(dbms_lob.substr(send_data,2000,1)) AS send_data_text " +
                 "FROM EOC.CWMESSAGELOG WHERE order_id = ?";
 
+        boolean isMnpFlow = orderFlow != null && orderFlow.toLowerCase().contains("mnp");
+        String expectedStepName = isMnpFlow ? "ESB_107_CreatePickupRequest" : "ESB_021_CreateLogisticsDeliveryRequest";
+
         try (Connection connection = connect()) {
-            ActionLogger.step(LOGGER, "Waiting for LMD ID in DB for order " + orderId);
+            ActionLogger.step(LOGGER, "Waiting for LMD ID in DB for order " + orderId + 
+                    (isMnpFlow ? " (MNP flow - ESB_107)" : " (Regular flow - ESB_021)"));
             Thread.sleep(config.lmdInitialDelayMs());
 
             for (int attempt = 1; attempt <= config.lmdRetries(); attempt++) {
@@ -46,9 +54,10 @@ public class OrderMessageRepository {
                         String stepName = resultSet.getString("stepname");
                         String sendData = resultSet.getString("send_data_text");
 
-                        if (stepName != null && stepName.contains("ESB_021_CreateLogisticsDeliveryRequest")) {
+                        if (stepName != null && stepName.contains(expectedStepName)) {
                             String lmdId = new JSONObject(sendData).getString("id");
-                            maybeAttachTechnical("DB Evidence (LMD Lookup)", "Found LMD ID " + lmdId + " for order " + orderId);
+                            String evidenceType = isMnpFlow ? "DB Evidence (MNP LMD Lookup)" : "DB Evidence (LMD Lookup)";
+                            maybeAttachTechnical(evidenceType, "Found LMD ID " + lmdId + " for order " + orderId);
                             return lmdId;
                         }
                     }
@@ -58,7 +67,8 @@ public class OrderMessageRepository {
             }
         }
 
-        maybeAttachTechnical("DB Evidence (LMD Lookup)", "LMD ID not found within retry window for order " + orderId);
+        String evidenceType = isMnpFlow ? "DB Evidence (MNP LMD Lookup)" : "DB Evidence (LMD Lookup)";
+        maybeAttachTechnical(evidenceType, "LMD ID not found within retry window for order " + orderId);
         return null;
     }
 
@@ -102,6 +112,43 @@ public class OrderMessageRepository {
             statement.setString(1, orderId);
             return statement.executeQuery().next();
         }
+    }
+
+    public String extractPortReqFormId(String orderId) throws Exception {
+        String sql = "SELECT stepname, utl_raw.cast_to_varchar2(dbms_lob.substr(send_data,2000,1)) AS send_data_text " +
+                "FROM EOC.CWMESSAGELOG WHERE order_id = ?";
+
+        try (Connection connection = connect()) {
+            ActionLogger.step(LOGGER, "Waiting for portReqFormID in DB for order " + orderId);
+            Thread.sleep(config.lmdInitialDelayMs());
+
+            for (int attempt = 1; attempt <= config.lmdRetries(); attempt++) {
+                LOGGER.debug("Looking for portReqFormID, attempt {}/{}", attempt, config.lmdRetries());
+
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, orderId);
+                    ResultSet resultSet = statement.executeQuery();
+
+                    while (resultSet.next()) {
+                        String stepName = resultSet.getString("stepname");
+                        String sendData = resultSet.getString("send_data_text");
+
+                        if (stepName != null && stepName.contains("ESB_104_NumberPortRequest_NPR")) {
+                            String portReqFormId = new JSONObject(sendData).getString("portReqFormID");
+                            maybeAttachTechnical("DB Evidence (MNP PortReqFormID)", 
+                                    "Found portReqFormID " + portReqFormId + " for order " + orderId);
+                            return portReqFormId;
+                        }
+                    }
+                }
+
+                Thread.sleep(config.lmdRetryIntervalMs());
+            }
+        }
+
+        maybeAttachTechnical("DB Evidence (MNP PortReqFormID)", 
+                "portReqFormID not found within retry window for order " + orderId);
+        return null;
     }
 
     public boolean hasClosedCompletedState(String orderId) throws Exception {
