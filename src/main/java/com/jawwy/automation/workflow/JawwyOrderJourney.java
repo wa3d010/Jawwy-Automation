@@ -5,6 +5,7 @@ import com.jawwy.automation.api.callbacks.BiometricsClient;
 import com.jawwy.automation.api.callbacks.ComptelCallbackClient;
 import com.jawwy.automation.api.callbacks.LmdCallbackClient;
 import com.jawwy.automation.api.callbacks.MnpAckCallbackClient;
+import com.jawwy.automation.api.callbacks.MnpAcceptCallbackClient;
 import com.jawwy.automation.api.callbacks.ProvisioningCallbackClient;
 import com.jawwy.automation.config.FrameworkConfig;
 import com.jawwy.automation.db.OrderMessageRepository;
@@ -28,6 +29,7 @@ public class JawwyOrderJourney {
     private final BiometricsClient biometricsClient = new BiometricsClient();
     private final LmdCallbackClient lmdCallbackClient = new LmdCallbackClient();
     private final MnpAckCallbackClient mnpAckCallbackClient = new MnpAckCallbackClient();
+    private final MnpAcceptCallbackClient mnpAcceptCallbackClient = new MnpAcceptCallbackClient();
     private final ComptelCallbackClient comptelCallbackClient = new ComptelCallbackClient();
     private final ProvisioningCallbackClient provisioningCallbackClient = new ProvisioningCallbackClient();
     private final OrderMessageRepository orderMessageRepository = new OrderMessageRepository();
@@ -279,10 +281,16 @@ public class JawwyOrderJourney {
 
             ActionLogger.step(LOGGER, "Resolved portReqFormID " + portReqFormId + " for MNP order " + requireCreatedOrderId());
             recordStep("Resolve portReqFormID", "PASSED");
-            
+
+            // Send MNP-Ack callback
             mnpAckCallbackClient.send(portReqFormId);
             ActionLogger.step(LOGGER, "MNP-Ack callback completed");
             recordStep("MNP-Ack Callback", "PASSED");
+
+            // Send MNP-Accept callback with the same portReqFormID
+            mnpAcceptCallbackClient.send(portReqFormId);
+            ActionLogger.step(LOGGER, "MNP-Accept callback completed");
+            recordStep("MNP-Accept Callback", "PASSED");
         }
     }
 
