@@ -126,7 +126,7 @@ public class HtmlReportBuilder {
             for (int i = 0; i < orders.size(); i++) {
                 OrderContext ctx = orders.get(i);
                 String orderId = ctx.getOrderId() != null ? ctx.getOrderId() : "N/A";
-                String failureReason = ctx.getFailureReason() != null ? ctx.getFailureReason() : "Unknown error";
+                String failureReason = buildBusinessFriendlyReason(ctx);
 
                 sb.append("<tr style='border-bottom:1px solid #f0f0f0'>")
                   .append("<td>").append(i + 1).append("</td>")
@@ -134,9 +134,8 @@ public class HtmlReportBuilder {
                   .append("<td>").append(flow).append("</td>")
                   .append("<td>").append(ctx.getRunDuration()).append("</td>")
                   .append("<td><span style='background:#FCEBEB;color:#A32D2D;padding:4px 10px;border-radius:20px'>FAILED</span></td>")
-                  .append("<td style='max-width:400px;word-wrap:break-word'>")
-                  .append("<div style='color:#A32D2D;font-size:12px;margin-bottom:4px;font-weight:600'>Reason:</div>")
-                  .append("<div style='color:#333;font-size:12px;line-height:1.4'>")
+                  .append("<td style='max-width:350px;word-wrap:break-word'>")
+                  .append("<div style='color:#A32D2D;font-weight:600;font-size:12px'>")
                   .append(escapeHtml(failureReason))
                   .append("</div></td>")
                   .append("<td>").append(stepsExpander(ctx, i, "f")).append("</td>")
@@ -146,6 +145,47 @@ public class HtmlReportBuilder {
         }
         sb.append("</div>");
         return sb.toString();
+    }
+
+    /* ================= BUSINESS-FRIENDLY REASON ================= */
+
+    private static String buildBusinessFriendlyReason(OrderContext ctx) {
+        String reason = ctx.getFailureReason();
+        if (reason == null || reason.trim().isEmpty()) {
+            return "Order execution failed with unknown error";
+        }
+
+        // Try to extract a clean business-friendly message
+        // Look for known error patterns
+        if (reason.contains("Mockoon is not started")) {
+            return "Server is offline - Mockoon not started or environment under maintenance";
+        }
+        if (reason.contains("Connection refused")) {
+            return "Cannot connect to backend server - service may be down";
+        }
+        if (reason.contains("Expected status code") && reason.contains("but was <500>")) {
+            return "Server error occurred - backend service returned 500 Internal Server Error";
+        }
+        if (reason.contains("Expected status code") && reason.contains("but was <404>")) {
+            return "Endpoint not found - API route may be incorrect or service unavailable";
+        }
+        if (reason.contains("Expected status code") && reason.contains("but was <401>")) {
+            return "Authentication failed - check API credentials or permissions";
+        }
+        if (reason.contains("Timeout") || reason.contains("timed out")) {
+            return "Request timed out - backend service took too long to respond";
+        }
+
+        // Extract first line of error message (usually the most relevant)
+        String[] lines = reason.split("\\n");
+        String firstLine = lines[0].trim();
+
+        // If it's too long, truncate it
+        if (firstLine.length() > 120) {
+            return firstLine.substring(0, 117) + "...";
+        }
+
+        return firstLine;
     }
 
     /* ================= STEPS ================= */

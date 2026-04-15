@@ -67,6 +67,7 @@ public class SpBatchTest extends BaseEocTest {
 
                 JawwyOrderJourney journey = new JawwyOrderJourney(orderFlow);
                 Instant startedAt = Instant.now();
+                boolean orderSucceeded = false;
 
                 try {
                     String orderId = journey.runFullFlow();
@@ -91,48 +92,101 @@ public class SpBatchTest extends BaseEocTest {
                         }
                     }
                     reportData.addCompleted(ctx);
+                    orderSucceeded = true;
 
                 } catch (Exception ex) {
                     Duration executionDuration = Duration.between(startedAt, Instant.now());
+                    String orderId = null;
+                    String stepStatuses = "";
+                    String failureMsg = summarizeFailure(ex);
+
+                    // Safely extract order info even if journey failed early
+                    try {
+                        orderId = journey.getCreatedOrderId();
+                    } catch (Exception e) {
+                        LOGGER.warn("Could not get orderId after failure: {}", e.getMessage());
+                    }
+
+                    try {
+                        stepStatuses = summarizeStepStatuses(journey);
+                    } catch (Exception e) {
+                        LOGGER.warn("Could not get step statuses after failure: {}", e.getMessage());
+                        stepStatuses = "Create Order=UNKNOWN";
+                    }
 
                     ExecutionResult result = ExecutionResult.failed(
                             iteration,
                             startedAt,
                             executionDuration,
-                            journey.getCreatedOrderId(),
-                            summarizeStepStatuses(journey) + " ; failure=" + summarizeFailure(ex)
+                            orderId,
+                            stepStatuses + " ; failure=" + failureMsg
                     );
 
                     results.add(result);
 
-                    // Add to new report data
-                    OrderContext ctx = new OrderContext(journey.getCreatedOrderId(), formatDuration(executionDuration));
-                    for (String step : journey.getStepStatuses()) {
-                        String[] parts = step.split("=");
-                        if (parts.length == 2) {
-                            ctx.addStep(parts[0].trim(), parts[1].trim());
+                    // Add to report data - ensure failed orders are ALWAYS tracked
+                    try {
+                        OrderContext ctx = new OrderContext(orderId, formatDuration(executionDuration));
+                        // Add all steps that were recorded before failure
+                        if (stepStatuses != null && !stepStatuses.isEmpty()) {
+                            for (String step : stepStatuses.split("\\s*;\\s*")) {
+                                String[] parts = step.split("=");
+                                if (parts.length == 2) {
+                                    ctx.addStep(parts[0].trim(), parts[1].trim());
+                                }
+                            }
                         }
+                        ctx.setFailureReason(failureMsg);
+                        reportData.addFailed(ctx);
+                        LOGGER.info("Added failed order {} to report data (orderId: {}, steps: {}, failure: {})",
+                                iteration, orderId != null ? orderId : "N/A", ctx.getStepLog().size(), failureMsg);
+                        LOGGER.info("ReportData now has: {} completed, {} failed",
+                                reportData.getCompleted().size(), reportData.getFailed().size());
+                    } catch (Exception reportEx) {
+                        LOGGER.error("Failed to add order {} to report data: {}", iteration, reportEx.getMessage());
+                        reportEx.printStackTrace();
                     }
-                    ctx.setFailureReason(summarizeFailure(ex));
-                    reportData.addFailed(ctx);
 
-                    LOGGER.error("Order {} failed: {}", iteration, summarizeFailure(ex));
+                    LOGGER.error("Order {} failed: {}", iteration, failureMsg);
+                    orderSucceeded = false;
                     // Continue with next order - DO NOT stop on failure
                 }
 
+                // Log progress after each order
+                int completedCount = reportData.getCompleted().size();
+                int failedCount = reportData.getFailed().size();
+                LOGGER.info("Progress after order {}: {} completed, {} failed, {} total processed",
+                        iteration, completedCount, failedCount, completedCount + failedCount);
+
                 // Write reports after each order (incremental updates)
-                writeReports(requestedOrderCount, results);
+                try {
+                    writeReports(requestedOrderCount, results);
+                } catch (Exception writeEx) {
+                    LOGGER.error("Failed to write incremental reports: {}", writeEx.getMessage());
+                    // Continue even if report writing fails
+                }
             }
         } finally {
             // ALWAYS generate final reports, even if loop threw an exception
-            ReportWriter.write(reportData);
+            try {
+                ReportWriter.write(reportData);
+                LOGGER.info("Final execution report generated: {} completed, {} failed, {} total requested",
+                        reportData.getCompleted().size(), reportData.getFailed().size(), requestedOrderCount);
+            } catch (Exception reportEx) {
+                LOGGER.error("Failed to generate final execution report: {}", reportEx.getMessage());
+            }
         }
 
-        Allure.addAttachment(
-                "Business Summary (SP Batch)",
-                "text/markdown",
-                buildMarkdownSummary(requestedOrderCount, results)
-        );
+        // ALWAYS add business summary to Allure, even if there were failures
+        try {
+            Allure.addAttachment(
+                    "Business Summary (SP Batch)",
+                    "text/markdown",
+                    buildMarkdownSummary(requestedOrderCount, results)
+            );
+        } catch (Exception allureEx) {
+            LOGGER.error("Failed to add business summary to Allure: {}", allureEx.getMessage());
+        }
     }
 
     /* ================= Report Writers ================= */
