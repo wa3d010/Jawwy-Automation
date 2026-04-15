@@ -60,19 +60,33 @@ public class OrdersApiClient extends ApiSupport {
         String body = TemplateEngine.apply(template, replacements);
 
         ActionLogger.step(LOGGER, "Creating order through EOC order API");
-        String orderId = given()
+        io.restassured.response.Response response = given()
                 .spec(requestSpec())
                 .pathParam("app", config.applicationContext())
                 .pathParam("version", "v1")
                 .queryParam("expand", "orderItems")
                 .body(body)
                 .when()
-                .post("/{app}/om/{version}/order")
-                .then()
-                .statusCode(201)
-                .extract()
-                .path("id");
+                .post("/{app}/om/{version}/order");
 
+        int statusCode = response.statusCode();
+        if (statusCode != 201) {
+            String errorBody = response.getBody().asString();
+            LOGGER.error("Order creation failed with status {}: {}", statusCode, errorBody);
+            
+            String helpfulMessage = "";
+            if (statusCode >= 500) {
+                helpfulMessage = " [Server Error: Mockoon is not started, or environment is being checked by dev now!]";
+            } else if (statusCode == 404) {
+                helpfulMessage = " [Not Found: API endpoint may be incorrect or service not running]";
+            } else if (statusCode == 401 || statusCode == 403) {
+                helpfulMessage = " [Auth Failed: Check API/UI credentials]";
+            }
+            
+            throw new AssertionError("Expected status code <201> but was <" + statusCode + ">. Response: " + errorBody + helpfulMessage);
+        }
+
+        String orderId = response.then().extract().path("id");
         ActionLogger.step(LOGGER, "Order created successfully with ID: " + orderId);
         return orderId;
     }

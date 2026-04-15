@@ -1,0 +1,14 @@
+{
+    "messageCode": "NPR Ack",
+    "serviceType": "MOBILE",
+    "portReqFormID": "{{portReqFormID}}",
+    "portID": "E23112738533577766",
+    "numberFrom": "966533577766",
+    "numberTo": "966533577766",
+    "donorID": "ALJAWAL",
+    "recipientID": "Sapphire",
+    "originatorID": "NPDB",
+    "idType": "NATIONAL_ID",
+    "idNumber": "1080440538",
+    "contactPhone": "966533577766"
+}

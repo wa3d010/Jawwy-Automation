@@ -45,7 +45,13 @@ public class ManualTaskProcessor {
 
         synchronized (ASYNC_LOCK) {
             if (activeTask == null || !orderId.equals(activeOrderId)) {
-                processSharingLimitsTaskInternal(orderId, false);
+                // Detect if this is MNP flow and use appropriate processing
+                String orderFlow = System.getProperty("order.flow", "");
+                if (orderFlow != null && orderFlow.toLowerCase().contains("mnp")) {
+                    processMnpTaskInternal(orderId, false);
+                } else {
+                    processSharingLimitsTaskInternal(orderId, false);
+                }
                 return;
             }
             taskToWaitFor = activeTask;
@@ -91,6 +97,84 @@ public class ManualTaskProcessor {
 
 
     private static boolean browserInitialized = false;
+
+    private void processMnpTaskInternal(String orderId, boolean asyncMode) {
+        if (!browserInitialized) {
+            PlaywrightManager.start();
+            Page page = PlaywrightManager.page();
+
+            ActionLogger.step(LOGGER, "Opening EOC login page");
+            new LoginPage(page).login();
+
+            WorklistPage worklistPage = new WorklistPage(page);
+            ActionLogger.step(LOGGER, "Opening worklist management page");
+            worklistPage.open();
+
+            ActionLogger.step(LOGGER, "Opening tasks panel");
+            worklistPage.openTasksPanel();
+
+            browserInitialized = true;
+        } else {
+            // Browser already initialized and Tasks panel is already open
+            Page page = PlaywrightManager.page();
+            WorklistPage worklistPage = new WorklistPage(page);
+            ActionLogger.step(LOGGER, "Clearing previous search to load new order");
+
+            // Clear any existing order ID from search field
+            worklistPage.clearOrderSearch();
+        }
+
+        Page page = PlaywrightManager.page();
+        WorklistPage worklistPage = new WorklistPage(page);
+
+        // For MNP, wait for ANY row with the order ID (no specific stage check)
+        Locator row = waitForAnyRow(worklistPage, orderId);
+        if (row == null || row.count() == 0) {
+            throw ActionLogger.failure(LOGGER, "No row found for Order ID: " + orderId);
+        }
+
+        ActionLogger.step(LOGGER, "MNP task detected for order " + orderId);
+        worklistPage.startWork(row);
+        ActionLogger.step(LOGGER, "Task started successfully");
+        worklistPage.skipTask(row);
+        ActionLogger.step(LOGGER, "Skip action clicked in UI");
+
+        if (asyncMode) {
+            LOGGER.info("Asynchronous MNP task worker completed for order {}", orderId);
+        }
+    }
+
+    private Locator waitForAnyRow(WorklistPage worklistPage, String orderId) {
+        long deadline = System.currentTimeMillis() + config.manualTaskTimeoutMs();
+        int attempt = 0;
+
+        while (System.currentTimeMillis() < deadline) {
+            attempt++;
+            if (attempt == 1 || attempt % 3 == 0) {
+                LOGGER.info("Searching worklist by order ID {} (attempt {})", orderId, attempt);
+            }
+            worklistPage.searchOrder(orderId);
+
+            Locator row = worklistPage.findRow(orderId);
+            if (row.count() > 0) {
+                String rowText = row.innerText();
+                LOGGER.info("Manual task row found for order {}: {}", orderId, rowText);
+                return row;
+            }
+
+            try {
+                if (attempt == 1 || attempt % 3 == 0) {
+                    LOGGER.info("Manual task not ready for order {} on poll attempt {}", orderId, attempt);
+                }
+                Thread.sleep(config.manualTaskPollIntervalMs());
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw ActionLogger.failure(LOGGER, "Interrupted while waiting for manual task row of Order ID: " + orderId);
+            }
+        }
+
+        return null;
+    }
 
     private void processSharingLimitsTaskInternal(String orderId, boolean asyncMode) {
         if (!browserInitialized) {

@@ -25,7 +25,6 @@ public class MnpAckCallbackClient extends ApiSupport {
         replacements.put("portReqFormID", portReqFormId);
         String body = TemplateEngine.apply(template, replacements);
 
-        String baseUrl = config.mnpCallbackBaseUrl();
         String app = config.applicationContext();
 
         AssertionError lastFailure = null;
@@ -34,21 +33,22 @@ public class MnpAckCallbackClient extends ApiSupport {
             try {
                 Response response = given()
                         .spec(requestSpec())
-                        .basePath(baseUrl)
+                        .contentType("application/json")
                         .pathParam("app", app)
                         .body(body)
                         .when()
                         .post("/{app}/mnp/port");
 
                 int actualStatus = response.statusCode();
-                if (actualStatus == 200 || actualStatus == 204) {
+                if (actualStatus == 200 || actualStatus == 201 || actualStatus == 204) {
                     ActionLogger.step(LOGGER, "MNP-Ack callback sent successfully for portReqFormID " + portReqFormId);
                     return;
                 }
 
                 String responseBody = safeResponseBody(response);
+                String helpfulMsg = actualStatus >= 500 ? " [Server Error: Mockoon is not started, or environment is being checked by dev now!]" : "";
                 throw new AssertionError("Expected status code <200> but was <" + actualStatus + ">."
-                        + " MNP-Ack response body: " + responseBody);
+                        + " MNP-Ack response body: " + responseBody + helpfulMsg);
             } catch (AssertionError failure) {
                 lastFailure = failure;
                 if (attempt == config.mnpAckRetries()) {

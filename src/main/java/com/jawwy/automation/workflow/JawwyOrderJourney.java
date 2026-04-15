@@ -166,23 +166,15 @@ public class JawwyOrderJourney {
 
     public void handleManualTask() {
         String orderId = requireCreatedOrderId();
+        manualTaskProcessor.processSharingLimitsTask(orderId);
+        ActionLogger.step(LOGGER,
+                "Manual task UI actions completed. Verifying backend state.");
 
-        for (int attempt = 1; attempt <= config.manualTaskUiAttempts(); attempt++) {
-            manualTaskProcessor.processSharingLimitsTask(orderId);
-            ActionLogger.step(LOGGER,
-                    "Manual task UI actions completed on attempt " + attempt + ". Verifying backend state.");
-
-            if (waitForClosedCompletedState(orderId)) {
-                recordStep("Manual Task UI", "PASSED");
-                recordStep("Manual Task DB Verification", "PASSED");
-                ActionLogger.step(LOGGER, "Manual task processed successfully and verified in DB");
-                return;
-            }
-
-            if (attempt < config.manualTaskUiAttempts()) {
-                ActionLogger.warn(LOGGER,
-                        "Manual task UI attempt " + attempt + " did not move the order to CLOSED.COMPLETED. Retrying the UI step.");
-            }
+        if (waitForClosedCompletedState(orderId)) {
+            recordStep("Manual Task UI", "PASSED");
+            recordStep("Manual Task DB Verification", "PASSED");
+            ActionLogger.step(LOGGER, "Manual task processed successfully and verified in DB");
+            return;
         }
 
         recordStep("Manual Task UI", "FAILED");

@@ -118,7 +118,7 @@ public class SpBatchTest extends BaseEocTest {
                 reportData.addFailed(ctx);
 
                 writeReports(requestedOrderCount, results);
-                throw ex;
+                // Continue with next order instead of stopping
             }
         }
 
@@ -622,7 +622,27 @@ public class SpBatchTest extends BaseEocTest {
     }
 
     private String summarizeFailure(Exception ex) {
-        return ex.getClass().getSimpleName() + ": " + ex.getMessage();
+        String message = ex.getMessage();
+        
+        // Extract the key failure information
+        if (message != null) {
+            // Check for server errors
+            if (message.contains("Mockoon is not started")) {
+                return message;
+            }
+            
+            // Extract the failing step from stack trace if available
+            String[] lines = message.split("\\n");
+            if (lines.length > 0) {
+                String firstLine = lines[0];
+                // Return the key error message
+                if (firstLine.contains("Expected status code")) {
+                    return firstLine;
+                }
+            }
+        }
+        
+        return ex.getClass().getSimpleName() + ": " + (message != null ? message : "Unknown error");
     }
 
     private String formatDuration(Duration duration) {

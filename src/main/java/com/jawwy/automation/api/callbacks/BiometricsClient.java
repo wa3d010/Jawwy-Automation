@@ -41,8 +41,9 @@ public class BiometricsClient extends ApiSupport {
                 }
 
                 String responseBody = safeResponseBody(response);
+                String helpfulMsg = actualStatus >= 500 ? " [Server Error: Mockoon is not started, or environment is being checked by dev now!]" : "";
                 throw new AssertionError("Expected status code <200> but was <" + actualStatus + ">."
-                        + " Biometrics response body: " + responseBody);
+                        + " Biometrics response body: " + responseBody + helpfulMsg);
             } catch (AssertionError failure) {
                 lastFailure = failure;
                 if (attempt == config.biometricsRetries()) {

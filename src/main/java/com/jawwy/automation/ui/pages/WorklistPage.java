@@ -140,39 +140,30 @@ public class WorklistPage {
     public void startWork(Locator row) {
         selectTaskCheckbox(row);
 
-        if (!clickVisibleToolbarAction("Start Work", 2000)) {
+        if (!clickVisibleToolbarAction("Start Work", 3000)) {
             throw new IllegalStateException("Unable to find toolbar action 'Start Work'. Visible action hints: "
                     + describeVisibleActionHints());
         }
 
-        waitForStartWorkToBegin(row);
-        page.waitForTimeout(100);
+        // Wait until Start Work button disappears (means it was clicked successfully)
+        waitForStartWorkToComplete();
     }
 
-    private void waitForStartWorkToBegin(Locator row) {
-        long deadline = System.currentTimeMillis() + 1000;
+    private void waitForStartWorkToComplete() {
+        long deadline = System.currentTimeMillis() + 3000;
         while (System.currentTimeMillis() < deadline) {
             if (!isToolbarActionVisible("Start Work")) {
                 return;
             }
-            try {
-                if (row.count() == 0 || !row.innerText().contains("SHARING_LIMITS")) {
-                    return;
-                }
-            } catch (PlaywrightException ignored) {
-                return;
-            }
             page.waitForTimeout(100);
         }
+        // If Start Work is still visible, try clicking it once more
+        clickVisibleToolbarAction("Start Work", 2000);
+        page.waitForTimeout(300);
     }
 
 
     public void skipTask(Locator row) {
-        if (isToolbarActionVisible("Start Work")) {
-            LOGGER.info("Start Work still visible before skip; retrying click.");
-            clickVisibleToolbarAction("Start Work", 3000);
-            waitForStartWorkToBegin(row);
-        }
         clickToolbarAction("Actions", 5000);
         page.waitForTimeout(300);
 
@@ -186,8 +177,6 @@ public class WorklistPage {
         page.waitForTimeout(300);
 
         if (!waitForSkipUiConfirmation(row)) {
-            // Some environments do not show a reliable "skipped" toast, and the grid can refresh silently.
-            // The business source of truth is the backend DB verification in JawwyOrderJourney.
             LOGGER.warn("Skip action was clicked, but the UI did not show a clear confirmation. Continuing to backend verification. Visible action hints: {}",
                     describeVisibleActionHints());
         }

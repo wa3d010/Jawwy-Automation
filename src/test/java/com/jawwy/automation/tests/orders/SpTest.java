@@ -43,7 +43,18 @@ public class SpTest extends BaseEocTest {
         journey.sendLmd106();
     }
 
-    @Test(dependsOnMethods = "sendLmd106Test", description = "Send Comptel callbacks")
+    @Test(dependsOnMethods = "sendLmd106Test", description = "Send MNP-Ack and MNP-Accept callbacks")
+    @Feature("Callbacks")
+    public void sendMnpAckTest() {
+        String flow = journey.getOrderFlow();
+        if (flow != null && flow.toLowerCase().contains("mnp")) {
+            journey.sendMnpAck();
+        } else {
+            throw new SkipException("Skipped: Not an MNP flow");
+        }
+    }
+
+    @Test(dependsOnMethods = "sendMnpAckTest", description = "Send Comptel callbacks")
     @Feature("Callbacks")
     public void sendComptel70CallbackTest() throws Exception {
         journey.sendComptelCallbacks();
