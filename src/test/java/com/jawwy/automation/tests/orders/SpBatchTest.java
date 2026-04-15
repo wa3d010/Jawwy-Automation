@@ -62,68 +62,71 @@ public class SpBatchTest extends BaseEocTest {
                 targetEnv, orderFlow, requestedOrderCount
         );
 
-        for (int iteration = 1; iteration <= requestedOrderCount; iteration++) {
+        try {
+            for (int iteration = 1; iteration <= requestedOrderCount; iteration++) {
 
-            JawwyOrderJourney journey = new JawwyOrderJourney(orderFlow);
-            Instant startedAt = Instant.now();
+                JawwyOrderJourney journey = new JawwyOrderJourney(orderFlow);
+                Instant startedAt = Instant.now();
 
-            try {
-                String orderId = journey.runFullFlow();
-                Duration executionDuration = Duration.between(startedAt, Instant.now());
+                try {
+                    String orderId = journey.runFullFlow();
+                    Duration executionDuration = Duration.between(startedAt, Instant.now());
 
-                ExecutionResult result = ExecutionResult.passed(
-                        iteration,
-                        startedAt,
-                        executionDuration,
-                        orderId,
-                        summarizeStepStatuses(journey)
-                );
+                    ExecutionResult result = ExecutionResult.passed(
+                            iteration,
+                            startedAt,
+                            executionDuration,
+                            orderId,
+                            summarizeStepStatuses(journey)
+                    );
 
-                results.add(result);
+                    results.add(result);
 
-                // Add to new report data
-                OrderContext ctx = new OrderContext(orderId, formatDuration(executionDuration));
-                for (String step : journey.getStepStatuses()) {
-                    String[] parts = step.split("=");
-                    if (parts.length == 2) {
-                        ctx.addStep(parts[0].trim(), parts[1].trim());
+                    // Add to new report data
+                    OrderContext ctx = new OrderContext(orderId, formatDuration(executionDuration));
+                    for (String step : journey.getStepStatuses()) {
+                        String[] parts = step.split("=");
+                        if (parts.length == 2) {
+                            ctx.addStep(parts[0].trim(), parts[1].trim());
+                        }
                     }
-                }
-                reportData.addCompleted(ctx);
+                    reportData.addCompleted(ctx);
 
-                writeReports(requestedOrderCount, results);
+                } catch (Exception ex) {
+                    Duration executionDuration = Duration.between(startedAt, Instant.now());
 
-            } catch (Exception ex) {
-                Duration executionDuration = Duration.between(startedAt, Instant.now());
+                    ExecutionResult result = ExecutionResult.failed(
+                            iteration,
+                            startedAt,
+                            executionDuration,
+                            journey.getCreatedOrderId(),
+                            summarizeStepStatuses(journey) + " ; failure=" + summarizeFailure(ex)
+                    );
 
-                ExecutionResult result = ExecutionResult.failed(
-                        iteration,
-                        startedAt,
-                        executionDuration,
-                        journey.getCreatedOrderId(),
-                        summarizeStepStatuses(journey) + " ; failure=" + summarizeFailure(ex)
-                );
+                    results.add(result);
 
-                results.add(result);
-
-                // Add to new report data
-                OrderContext ctx = new OrderContext(journey.getCreatedOrderId(), formatDuration(executionDuration));
-                for (String step : journey.getStepStatuses()) {
-                    String[] parts = step.split("=");
-                    if (parts.length == 2) {
-                        ctx.addStep(parts[0].trim(), parts[1].trim());
+                    // Add to new report data
+                    OrderContext ctx = new OrderContext(journey.getCreatedOrderId(), formatDuration(executionDuration));
+                    for (String step : journey.getStepStatuses()) {
+                        String[] parts = step.split("=");
+                        if (parts.length == 2) {
+                            ctx.addStep(parts[0].trim(), parts[1].trim());
+                        }
                     }
-                }
-                ctx.setFailureReason(summarizeFailure(ex));
-                reportData.addFailed(ctx);
+                    ctx.setFailureReason(summarizeFailure(ex));
+                    reportData.addFailed(ctx);
 
+                    LOGGER.error("Order {} failed: {}", iteration, summarizeFailure(ex));
+                    // Continue with next order - DO NOT stop on failure
+                }
+
+                // Write reports after each order (incremental updates)
                 writeReports(requestedOrderCount, results);
-                // Continue with next order instead of stopping
             }
+        } finally {
+            // ALWAYS generate final reports, even if loop threw an exception
+            ReportWriter.write(reportData);
         }
-
-        // Generate new beautiful HTML and TXT reports
-        ReportWriter.write(reportData);
 
         Allure.addAttachment(
                 "Business Summary (SP Batch)",
@@ -667,7 +670,18 @@ public class SpBatchTest extends BaseEocTest {
         md.append("- Failed: ").append(failedCount).append("\n");
         md.append("- Average duration: ").append(String.format("%.2fs", avgDurationSec)).append("\n\n");
 
-        md.append("| # | Status | Order ID | Duration | Notes |\n");
+        if (failedCount > 0) {
+            md.append("## Failed Orders Details\n\n");
+            for (ExecutionResult r : results) {
+                if (!r.passed()) {
+                    md.append("### Order ").append(r.iteration()).append(" - ").append(valueOrDash(r.orderId())).append("\n");
+                    md.append("- Duration: ").append(String.format("%.2fs", r.duration().toMillis() / 1000.0)).append("\n");
+                    md.append("- Failure: ").append(r.notes()).append("\n\n");
+                }
+            }
+        }
+
+        md.append("| # | Status | Order ID | Duration | Steps |\n");
         md.append("|---|--------|----------|----------|-------|\n");
 
         for (ExecutionResult r : results) {
