@@ -67,7 +67,8 @@ pipeline {
         stage('Run Order Flow') {
             steps {
                 echo "Business Flow: ${params.ORDER_FLOW} | Env: ${params.TARGET_ENV} | Order Count: ${params.ORDER_COUNT}"
-                bat 'mvn -q clean test -Denv=%JAWWY_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow=\"%ORDER_FLOW%\" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml'
+                // Always return success (0) so pipeline continues to publish reports even when tests fail
+                bat 'mvn -q clean test -Denv=%JAWWY_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow=\"%ORDER_FLOW%\" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml || echo "Tests completed with failures, but continuing to publish reports..." && exit 0'
             }
         }
 
