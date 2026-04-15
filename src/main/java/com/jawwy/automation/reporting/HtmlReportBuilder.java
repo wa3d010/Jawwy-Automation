@@ -113,11 +113,39 @@ public class HtmlReportBuilder {
     /* ================= FAILED ================= */
 
     private static String failedTable(List<OrderContext> orders, String flow) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style='background:white;border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #e8e8e8'>")
+          .append("<div style='font-size:15px;font-weight:600;margin-bottom:16px'>Failed orders (")
+          .append(orders.size()).append(")</div>");
+
         if (orders.isEmpty()) {
-            return "<div style='background:white;border-radius:12px;padding:20px;border:1px solid #e8e8e8'>"
-                    + "<div>No failed orders</div></div>";
+            sb.append("<div style='color:#888;font-size:13px'>No failed orders</div>");
+        } else {
+            sb.append("<table style='width:100%;border-collapse:collapse;font-size:13px'>");
+
+            for (int i = 0; i < orders.size(); i++) {
+                OrderContext ctx = orders.get(i);
+                String orderId = ctx.getOrderId() != null ? ctx.getOrderId() : "N/A";
+                String failureReason = ctx.getFailureReason() != null ? ctx.getFailureReason() : "Unknown error";
+
+                sb.append("<tr style='border-bottom:1px solid #f0f0f0'>")
+                  .append("<td>").append(i + 1).append("</td>")
+                  .append("<td><b>").append(orderId).append("</b></td>")
+                  .append("<td>").append(flow).append("</td>")
+                  .append("<td>").append(ctx.getRunDuration()).append("</td>")
+                  .append("<td><span style='background:#FCEBEB;color:#A32D2D;padding:4px 10px;border-radius:20px'>FAILED</span></td>")
+                  .append("<td style='max-width:400px;word-wrap:break-word'>")
+                  .append("<div style='color:#A32D2D;font-size:12px;margin-bottom:4px;font-weight:600'>Reason:</div>")
+                  .append("<div style='color:#333;font-size:12px;line-height:1.4'>")
+                  .append(escapeHtml(failureReason))
+                  .append("</div></td>")
+                  .append("<td>").append(stepsExpander(ctx, i, "f")).append("</td>")
+                  .append("</tr>");
+            }
+            sb.append("</table>");
         }
-        return "";
+        sb.append("</div>");
+        return sb.toString();
     }
 
     /* ================= STEPS ================= */
@@ -194,5 +222,16 @@ public class HtmlReportBuilder {
                 + "<a href='" + url + "' target='_blank'>"
                 + "<span style='background:#185FA5;color:white;padding:10px 18px;border-radius:999px'>"
                 + "View Allure Report</span></a></div>";
+    }
+
+    /* ================= HELPERS ================= */
+
+    private static String escapeHtml(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&#39;");
     }
 }
