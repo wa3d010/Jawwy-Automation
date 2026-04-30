@@ -15,31 +15,63 @@ public abstract class BaseEocTest {
 
     @BeforeSuite(alwaysRun = true)
     public void beforeSuite() {
-        ReportCleaner.cleanPreviousRunArtifacts();
-        FrameworkConfig.reload();
-        FrameworkConfig config = FrameworkConfig.getInstance();
-        LOGGER.info("Starting suite on environment '{}'", config.environmentName());
 
-        Thread browserWarmup = new Thread(() -> {
-            try {
-                Thread.sleep(config.browserWarmupDelayMs());
-                PlaywrightManager.start();
-                LOGGER.info("Playwright browser warmup completed");
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                LOGGER.warn("Browser warmup was interrupted");
-            } catch (RuntimeException exception) {
-                LOGGER.warn("Browser warmup failed", exception);
+        // Always clean previous artifacts
+        ReportCleaner.cleanPreviousRunArtifacts();
+
+        boolean batchMode = Boolean.parseBoolean(System.getProperty("batch.mode", "false"));
+
+        try {
+            FrameworkConfig.reload();
+            FrameworkConfig config = FrameworkConfig.getInstance();
+            LOGGER.info("Starting suite on environment '{}'", config.environmentName());
+
+            // Browser warmup should NEVER block execution
+            Thread browserWarmup = new Thread(() -> {
+                try {
+                    Thread.sleep(config.browserWarmupDelayMs());
+                    PlaywrightManager.start();
+                    LOGGER.info("Playwright browser warmup completed");
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    LOGGER.warn("Browser warmup was interrupted");
+                } catch (RuntimeException exception) {
+                    LOGGER.warn("Browser warmup failed", exception);
+                }
+            });
+            browserWarmup.setDaemon(true);
+            browserWarmup.start();
+
+        } catch (RuntimeException ex) {
+
+            if (batchMode) {
+                // ✅ CRITICAL: do NOT fail suite in batch mode
+                LOGGER.error(
+                        "Environment validation failed, but continuing in batch mode. " +
+                        "Failure will be reported in execution report.",
+                        ex
+                );
+            } else {
+                // ❌ For interactive/local runs, fail fast as before
+                throw ex;
             }
-        });
-        browserWarmup.setDaemon(true);
-        browserWarmup.start();
+        }
     }
 
     @AfterSuite(alwaysRun = true)
     public void afterSuite() {
-        ManualTaskProcessor.shutdownAsyncWorker();
-        PlaywrightManager.stop();
+        try {
+            ManualTaskProcessor.shutdownAsyncWorker();
+        } catch (Exception e) {
+            LOGGER.warn("Failed to shut down ManualTaskProcessor cleanly", e);
+        }
+
+        try {
+            PlaywrightManager.stop();
+        } catch (Exception e) {
+            LOGGER.warn("Failed to stop Playwright cleanly", e);
+        }
+
         LOGGER.info("Suite finished and browser resources were closed");
     }
 }
