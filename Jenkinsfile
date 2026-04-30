@@ -2,13 +2,19 @@ pipeline {
     agent any
 
     options {
-        // We'll do our own checkout in a business-named stage (so "Checkout SCM" doesn't show up).
         skipDefaultCheckout(true)
     }
 
     parameters {
-        choice(name: 'TARGET_ENV', choices: ['Testing environment', 'Pre Production environment','Upgrade environment'], description: 'Environment to execute against')
-        choice(name: 'ORDER_FLOW', choices: [
+        choice(
+            name: 'TARGET_ENV',
+            choices: ['Testing environment', 'Pre Production environment', 'Upgrade environment'],
+            description: 'Environment to execute against'
+        )
+
+        choice(
+            name: 'ORDER_FLOW',
+            choices: [
                 'New Activation Online',
                 'New Activation eSIM',
                 'New Activation Offline',
@@ -41,23 +47,32 @@ pipeline {
                 'Privacy Settings',
                 'Set Usage Restriction',
                 'Set Wallet Sharing'
-        ], description: 'Which order flow should be executed? (Selection is captured and passed through only; no routing yet)')
-        string(name: 'ORDER_COUNT', defaultValue: '1', description: 'How many orders should this flow create?')
+            ],
+            description: 'Which order flow should be executed?'
+        )
+
+        string(
+            name: 'ORDER_COUNT',
+            defaultValue: '1',
+            description: 'How many orders should this flow create?'
+        )
     }
 
     environment {
-        JAWWY_ENV = "local"
+        JAWWY_ENV = 'local'
         ORDER_FLOW = "${params.ORDER_FLOW}"
+
         JAWWY_API_BASE_URL = credentials('jawwy-api-base-url')
-        JAWWY_UI_BASE_URL = credentials('jawwy-ui-base-url')
-        JAWWY_UI_USERNAME = credentials('jawwy-ui-username')
-        JAWWY_UI_PASSWORD = credentials('jawwy-ui-password')
-        JAWWY_DB_URL = credentials('jawwy-db-url')
-        JAWWY_DB_USER = credentials('jawwy-db-user')
-        JAWWY_DB_PASSWORD = credentials('jawwy-db-password')
+        JAWWY_UI_BASE_URL  = credentials('jawwy-ui-base-url')
+        JAWWY_UI_USERNAME  = credentials('jawwy-ui-username')
+        JAWWY_UI_PASSWORD  = credentials('jawwy-ui-password')
+        JAWWY_DB_URL       = credentials('jawwy-db-url')
+        JAWWY_DB_USER      = credentials('jawwy-db-user')
+        JAWWY_DB_PASSWORD  = credentials('jawwy-db-password')
     }
 
     stages {
+
         stage('Prepare Automation Code') {
             steps {
                 checkout scm
@@ -67,35 +82,66 @@ pipeline {
         stage('Run Order Flow') {
             steps {
                 echo "Business Flow: ${params.ORDER_FLOW} | Env: ${params.TARGET_ENV} | Order Count: ${params.ORDER_COUNT}"
-                // ALWAYS return success (0) so pipeline continues to publish reports even when tests fail
-                // The || true ensures Maven failure doesn't stop the pipeline
-                bat 'mvn -q clean test -Denv=%JAWWY_ENV% -Dtest=SpBatchTest -Dorder.count=%ORDER_COUNT% -Dorder.flow="%ORDER_FLOW%" -Dbatch.mode=true -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml || true'
+
+                bat '''
+                    mvn -q clean test ^
+                      -Denv=%JAWWY_ENV% ^
+                      -Dtest=SpBatchTest ^
+                      -Dorder.count=%ORDER_COUNT% ^
+                      -Dorder.flow="%ORDER_FLOW%" ^
+                      -Dbatch.mode=true ^
+                      -Dlogback.configurationFile=src/main/resources/logback-jenkins.xml
+
+                    rem IMPORTANT: force success so pipeline continues
+                    exit /b 0
+                '''
             }
         }
 
         stage('Business Summary') {
             steps {
-                bat 'if exist target\\jenkins\\sp-batch-summary.md (type target\\jenkins\\sp-batch-summary.md) else (echo No batch summary found.)'
-                echo 'Tip: Open Artifacts -> target/jenkins/dashboard/index.html for the manager dashboard.'
+                bat '''
+                    if exist target\\execution-report.txt (
+                        type target\\execution-report.txt
+                    ) else (
+                        echo No batch summary found.
+                    )
+                '''
+                echo 'Tip: Open Artifacts → Execution Report for the HTML dashboard.'
             }
         }
 
         stage('Publish Reports') {
             steps {
-                // Keep artifacts available in Jenkins without showing technical steps in the stage graph.
-                archiveArtifacts artifacts: 'target/surefire-reports/**/*,target/jenkins/**/*,target/execution-report.*,allure-results/**/*,logs/**/*', allowEmptyArchive: true
-                junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+                archiveArtifacts artifacts: '''
+                    target/execution-report.html,
+                    target/execution-report.txt,
+                    target/surefire-reports/**/*,
+                    logs/**/*
+                ''', allowEmptyArchive: true
 
-                // Publish HTML report for easy viewing in Jenkins UI
+                junit testResults: 'target/surefire-reports/*.xml',
+                      allowEmptyResults: true
+
                 publishHTML([
                     reportDir: 'target',
                     reportFiles: 'execution-report.html',
                     reportName: 'Execution Report',
-                    allowMissing: true,
+                    keepAll: true,
                     alwaysLinkToLastBuild: true,
-                    keepAll: true
+                    allowMissing: true
                 ])
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished. Reports (if generated) are archived.'
+        }
+
+        failure {
+            echo 'Build FAILED – see Execution Report for details.'
         }
     }
 }

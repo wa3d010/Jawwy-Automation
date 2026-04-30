@@ -6,246 +6,107 @@ import java.util.List;
 public class HtmlReportBuilder {
 
     public static String build(ReportData data) {
-        int total     = data.getRuns();
+        int total = data.getRuns();
         int completed = data.getCompleted().size();
-        int failed    = data.getFailed().size();
-        int rate      = total > 0 ? (completed * 100 / total) : 0;
+        int failed = data.getFailed().size();
+        int rate = total > 0 ? (completed * 100 / total) : 0;
 
         return "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
                 + "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                + "<title>Jawwy Report</title></head>"
-                + "<body style='font-family:Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:24px;margin:0'>"
+                + "<title>Jawwy Automation Report</title>"
+                + "<style>" + css() + "</style>"
+                + "</head><body>"
                 + header(data)
                 + allureButton(data.getAllureReportUrl())
                 + statsGrid(total, completed, failed, rate)
-                + progressSection(completed, failed, rate)
                 + completedTable(data.getCompleted(), data.getFlow())
                 + failedTable(data.getFailed(), data.getFlow())
-                + timeline(data.getCompleted(), data.getFailed(), data.getFlow())
                 + footer()
                 + "</body></html>";
     }
 
+    /* ================= CSS ================= */
+
+  private static String css() {
+    return ""
+        + "body { font-family: Arial, sans-serif; background:#f0f2f5; margin:0; padding:24px; color:#1a1a2e; }\n"
+        + ".card { background:white; border-radius:12px; padding:20px; margin-bottom:20px; border:1px solid #e8e8e8 }\n"
+        + ".header { background:#1a1a2e; color:white; padding:28px; border-radius:12px; display:flex; justify-content:space-between }\n"
+        + ".stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px }\n"
+        + ".pill-success { background:#EAF3DE; color:#3B6D11; padding:4px 12px; border-radius:20px }\n"
+        + ".pill-fail { background:#FCEBEB; color:#A32D2D; padding:4px 12px; border-radius:20px }\n"
+        + "table { width:100%; border-collapse:collapse; font-size:13px }\n"
+        + "td { padding:10px; border-bottom:1px solid #eee }\n"
+        + ".error { color:#A32D2D; font-weight:600 }\n"
+        + "button { cursor:pointer; }\n";
+}
+
+
     /* ================= HEADER ================= */
 
     private static String header(ReportData data) {
-        return "<div style='background:#1a1a2e;color:white;padding:28px 32px;"
-                + "border-radius:12px;margin-bottom:24px;display:flex;"
-                + "justify-content:space-between;align-items:center'>"
-                + "<div>"
-                + "<div style='font-size:22px;font-weight:700;margin-bottom:4px'>Jawwy Automation Report</div>"
-                + "<div style='font-size:13px;opacity:0.7'>Generated: "
-                + data.getTimestamp()
-                + "</div>"
-                + "</div>"
-                + "<div style='display:flex;gap:10px;align-items:center'>"
-                + "<span style='background:rgba(255,255,255,0.15);padding:6px 16px;border-radius:20px;"
-                + "font-size:13px;font-weight:600'>"
-                + data.getFlow()
-                + "</span>"
-                + "<span style='background:#185FA5;padding:6px 16px;border-radius:20px;"
-                + "font-size:13px;font-weight:600'>"
-                + data.getEnvironment()
-                + "</span>"
-                + "</div>"
+        return "<div class='header'>"
+                + "<div><div style='font-size:22px;font-weight:700'>Jawwy Automation Report</div>"
+                + "<div style='font-size:12px;opacity:0.7'>Generated: " + data.getTimestamp() + "</div></div>"
+                + "<div><span class='pill-success'>" + data.getFlow() + "</span> "
+                + "<span class='pill-success'>" + data.getEnvironment() + "</span></div>"
                 + "</div>";
     }
 
     /* ================= STATS ================= */
 
     private static String statsGrid(int total, int completed, int failed, int rate) {
-        return "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px'>"
-                + statCard(String.valueOf(total), "Total Runs", "Requested runs", "#185FA5")
-                + statCard(String.valueOf(completed), "Completed", "Successfully done", "#3B6D11")
-                + statCard(String.valueOf(failed), "Failed", "Needs attention", "#A32D2D")
-                + statCard(rate + "%", "Success Rate", "This execution", "#5F5E5A")
+        return "<div class='stats'>"
+                + stat("Total Runs", total)
+                + stat("Completed", completed)
+                + stat("Failed", failed)
+                + stat("Success Rate", rate + "%")
                 + "</div>";
     }
 
-    private static String statCard(String value, String label, String sub, String color) {
-        return "<div style='background:white;border-radius:12px;padding:20px;border:1px solid #e8e8e8'>"
-                + "<div style='font-size:12px;color:#888;text-transform:uppercase;margin-bottom:8px'>"
-                + label
-                + "</div>"
-                + "<div style='font-size:32px;font-weight:700;color:" + color + "'>" + value + "</div>"
-                + "<div style='font-size:12px;color:#888;margin-top:6px'>" + sub + "</div>"
-                + "</div>";
-    }
-
-    /* ================= PROGRESS ================= */
-
-    private static String progressSection(int completed, int failed, int rate) {
-        return "<div style='background:white;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #e8e8e8'>"
-                + "<div style='font-size:13px;color:#888;margin-bottom:12px'>Execution progress</div>"
-                + "<div style='background:#f0f2f5;border-radius:99px;height:12px;overflow:hidden;margin-bottom:8px'>"
-                + "<div style='width:" + rate + "%;height:100%;background:#3B6D11'></div>"
-                + "</div>"
-                + "<div style='display:flex;justify-content:space-between;font-size:12px'>"
-                + "<span style='color:#3B6D11'>" + completed + " completed</span>"
-                + "<span style='color:#888'>" + failed + " failed</span>"
-                + "</div></div>";
+    private static String stat(String label, Object value) {
+        return "<div class='card'><div style='font-size:12px;color:#777'>" + label +
+                "</div><div style='font-size:28px;font-weight:700'>" + value + "</div></div>";
     }
 
     /* ================= COMPLETED ================= */
 
     private static String completedTable(List<OrderContext> orders, String flow) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("<div style='background:white;border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #e8e8e8'>")
-          .append("<div style='font-size:15px;font-weight:600;margin-bottom:16px'>Completed orders (")
-          .append(orders.size()).append(")</div>")
-          .append("<table style='width:100%;border-collapse:collapse;font-size:13px'>");
-
-        for (int i = 0; i < orders.size(); i++) {
-            OrderContext ctx = orders.get(i);
-            sb.append("<tr style='border-bottom:1px solid #f0f0f0'>")
-              .append("<td>").append(i + 1).append("</td>")
-              .append("<td><b>").append(ctx.getOrderId()).append("</b></td>")
-              .append("<td>").append(flow).append("</td>")
-              .append("<td>").append(ctx.getRunDuration()).append("</td>")
-              .append("<td><span style='background:#EAF3DE;color:#3B6D11;padding:4px 10px;border-radius:20px'>SUCCESS</span></td>")
-              .append("<td>").append(stepsExpander(ctx, i, "c")).append("</td>")
-              .append("</tr>");
-        }
-        sb.append("</table></div>");
-        return sb.toString();
+        return renderTable("Completed orders", orders, flow, true);
     }
 
-    /* ================= FAILED ================= */
-
     private static String failedTable(List<OrderContext> orders, String flow) {
+        return renderTable("Failed orders", orders, flow, false);
+    }
+
+    private static String renderTable(String title, List<OrderContext> orders, String flow, boolean success) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<div style='background:white;border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #e8e8e8'>")
-          .append("<div style='font-size:15px;font-weight:600;margin-bottom:16px'>Failed orders (")
-          .append(orders.size()).append(")</div>");
+        sb.append("<div class='card'><div style='font-size:16px;font-weight:600'>")
+                .append(title).append(" (").append(orders.size()).append(")</div>");
 
         if (orders.isEmpty()) {
-            sb.append("<div style='color:#888;font-size:13px'>No failed orders</div>");
+            sb.append("<div style='color:#777;margin-top:10px'>None</div>");
         } else {
-            sb.append("<table style='width:100%;border-collapse:collapse;font-size:13px'>");
-
-            for (int i = 0; i < orders.size(); i++) {
-                OrderContext ctx = orders.get(i);
-                String orderId = ctx.getOrderId() != null && !ctx.getOrderId().trim().isEmpty() ? ctx.getOrderId() : "N/A";
-                String failureReason = buildBusinessFriendlyReason(ctx);
-                String duration = ctx.getRunDuration() != null ? ctx.getRunDuration() : "N/A";
-
-                sb.append("<tr style='border-bottom:1px solid #f0f0f0'>")
-                  .append("<td>").append(i + 1).append("</td>")
-                  .append("<td><b>").append(orderId).append("</b></td>")
-                  .append("<td>").append(flow).append("</td>")
-                  .append("<td>").append(duration).append("</td>")
-                  .append("<td><span style='background:#FCEBEB;color:#A32D2D;padding:4px 10px;border-radius:20px'>FAILED</span></td>")
-                  .append("<td style='max-width:350px;word-wrap:break-word'>")
-                  .append("<div style='color:#A32D2D;font-weight:600;font-size:12px'>")
-                  .append(escapeHtml(failureReason))
-                  .append("</div></td>")
-                  .append("<td>").append(stepsExpander(ctx, i, "f")).append("</td>")
-                  .append("</tr>");
+            sb.append("<table>");
+            for (OrderContext ctx : orders) {
+                sb.append("<tr>")
+                        .append("<td>").append(ctx.getOrderId() != null ? ctx.getOrderId() : "N/A").append("</td>")
+                        .append("<td>").append(flow).append("</td>")
+                        .append("<td>").append(ctx.getRunDuration()).append("</td>")
+                        .append("<td>")
+                        .append(success
+                                ? "<span class='pill-success'>PASS</span>"
+                                : "<span class='pill-fail'>FAIL</span>")
+                        .append("</td>")
+                        .append("<td class='error'>")
+                        .append(success ? "" : escape(ctx.getFailureReason()))
+                        .append("</td>")
+                        .append("</tr>");
             }
             sb.append("</table>");
         }
         sb.append("</div>");
         return sb.toString();
-    }
-
-    /* ================= BUSINESS-FRIENDLY REASON ================= */
-
-    private static String buildBusinessFriendlyReason(OrderContext ctx) {
-        String reason = ctx.getFailureReason();
-        if (reason == null || reason.trim().isEmpty()) {
-            return "Order execution failed with unknown error";
-        }
-
-        // Try to extract a clean business-friendly message
-        // Look for known error patterns
-        if (reason.contains("Mockoon is not started")) {
-            return "Server is offline - Mockoon not started or environment under maintenance";
-        }
-        if (reason.contains("Connection refused")) {
-            return "Cannot connect to backend server - service may be down";
-        }
-        if (reason.contains("Expected status code") && reason.contains("but was <500>")) {
-            return "Server error occurred - backend service returned 500 Internal Server Error";
-        }
-        if (reason.contains("Expected status code") && reason.contains("but was <404>")) {
-            return "Endpoint not found - API route may be incorrect or service unavailable";
-        }
-        if (reason.contains("Expected status code") && reason.contains("but was <401>")) {
-            return "Authentication failed - check API credentials or permissions";
-        }
-        if (reason.contains("Timeout") || reason.contains("timed out")) {
-            return "Request timed out - backend service took too long to respond";
-        }
-
-        // Extract first line of error message (usually the most relevant)
-        String[] lines = reason.split("\\n");
-        String firstLine = lines[0].trim();
-
-        // If it's too long, truncate it
-        if (firstLine.length() > 120) {
-            return firstLine.substring(0, 117) + "...";
-        }
-
-        return firstLine;
-    }
-
-    /* ================= STEPS ================= */
-
-    private static String stepsExpander(OrderContext ctx, int index, String prefix) {
-    if (ctx.getStepLog().isEmpty()) return "-";
-
-    String id = "steps-" + prefix + index;
-    StringBuilder steps = new StringBuilder();
-
-    for (OrderContext.StepExecution step : ctx.getStepLog()) {
-
-        boolean success = step.getStatus() != null &&
-                (step.getStatus().equalsIgnoreCase("PASSED")
-              || step.getStatus().equalsIgnoreCase("SUCCESS"));
-
-        String icon = success ? "✅" : "❌";
-        String bg   = success ? "#EAF3DE" : "#FCEBEB";
-        String fg   = success ? "#3B6D11" : "#A32D2D";
-
-        steps.append("<div style='display:flex;justify-content:space-between;"
-                + "align-items:center;padding:8px 12px;border-bottom:1px solid #f0f0f0;"
-                + "font-size:12px'>")
-             .append("<span>").append(icon).append(" ").append(step.getStepName()).append("</span>")
-             .append("<span style='background:").append(bg)
-             .append(";color:").append(fg)
-             .append(";padding:2px 8px;border-radius:10px;font-weight:600'>")
-             .append(step.getStatus()).append("</span>")
-             .append("</div>");
-    }
-
-    return
-        // ✅ Styled Expand button
-        "<button onclick=\"var d=document.getElementById('" + id + "');"
-      + "d.style.display=d.style.display==='none'?'block':'none'\""
-      + " style='background:#f8f9fa;"
-      + "border:1px solid #dcdcdc;"
-      + "color:#1a1a2e;"
-      + "border-radius:999px;"
-      + "padding:6px 14px;"
-      + "font-size:12px;"
-      + "font-weight:600;"
-      + "cursor:pointer;"
-      + "transition:all .15s ease'>"
-      + "Expand</button>"
-
-      // ✅ Steps container
-      + "<div id='" + id + "' style='display:none;margin-top:10px;"
-      + "border:1px solid #e8e8e8;border-radius:10px;"
-      + "overflow:hidden;background:white'>"
-      + steps
-      + "</div>";
-}
-
-
-    /* ================= TIMELINE ================= */
-
-    private static String timeline(List<OrderContext> completed, List<OrderContext> failed, String flow) {
-        return "";
     }
 
     /* ================= FOOTER ================= */
@@ -258,21 +119,17 @@ public class HtmlReportBuilder {
     /* ================= ALLURE ================= */
 
     private static String allureButton(String url) {
-        if (url == null || url.trim().isEmpty()) return "";
+        if (url == null || url.isBlank()) return "";
         return "<div style='text-align:right;margin-bottom:20px'>"
                 + "<a href='" + url + "' target='_blank'>"
-                + "<span style='background:#185FA5;color:white;padding:10px 18px;border-radius:999px'>"
-                + "View Allure Report</span></a></div>";
+                + "<span class='pill-success'>View Allure Report</span></a></div>";
     }
 
-    /* ================= HELPERS ================= */
+    /* ================= ESCAPE ================= */
 
-    private static String escapeHtml(String value) {
-        if (value == null) return "";
-        return value.replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace("\"", "&quot;")
-                    .replace("'", "&#39;");
+    private static String escape(String v) {
+        if (v == null) return "";
+        return v.replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace("\"", "&quot;");
     }
 }
