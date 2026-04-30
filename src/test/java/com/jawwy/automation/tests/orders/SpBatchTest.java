@@ -122,7 +122,9 @@ public class SpBatchTest extends BaseEocTest {
                             stepStatuses + " ; failure=" + failureMsg
                     );
 
+                    // ALWAYS add to results FIRST (this is our source of truth)
                     results.add(result);
+                    LOGGER.info("Added failed result to results list (iteration: {}, orderId: {})", iteration, orderId != null ? orderId : "N/A");
 
                     // Add to report data - ensure failed orders are ALWAYS tracked
                     try {
@@ -138,8 +140,8 @@ public class SpBatchTest extends BaseEocTest {
                         }
                         ctx.setFailureReason(failureMsg);
                         reportData.addFailed(ctx);
-                        LOGGER.info("Added failed order {} to report data (orderId: {}, steps: {}, failure: {})",
-                                iteration, orderId != null ? orderId : "N/A", ctx.getStepLog().size(), failureMsg);
+                        LOGGER.info("Added failed order {} to report data (orderId: {}, steps: {})",
+                                iteration, orderId != null ? orderId : "N/A", ctx.getStepLog().size());
                         LOGGER.info("ReportData now has: {} completed, {} failed",
                                 reportData.getCompleted().size(), reportData.getFailed().size());
                     } catch (Exception reportEx) {
@@ -169,11 +171,82 @@ public class SpBatchTest extends BaseEocTest {
         } finally {
             // ALWAYS generate final reports, even if loop threw an exception
             try {
-                ReportWriter.write(reportData);
-                LOGGER.info("Final execution report generated: {} completed, {} failed, {} total requested",
+                // Fail-safe 1: If reportData is empty but we have results, rebuild from results
+                if (reportData.getCompleted().isEmpty() && reportData.getFailed().isEmpty() && !results.isEmpty()) {
+                    LOGGER.warn("ReportData is empty but we have {} results. Rebuilding from results.", results.size());
+                    for (ExecutionResult r : results) {
+                        OrderContext ctx = new OrderContext(r.orderId(), formatDuration(r.duration()));
+                        if (r.notes() != null) {
+                            for (String step : r.notes().split("\\s*;\\s*")) {
+                                String[] parts = step.split("=");
+                                if (parts.length == 2) {
+                                    ctx.addStep(parts[0].trim(), parts[1].trim());
+                                }
+                            }
+                        }
+                        if (!r.passed()) {
+                            String notes = r.notes();
+                            int failIdx = notes.indexOf("failure=");
+                            if (failIdx >= 0) {
+                                ctx.setFailureReason(notes.substring(failIdx + 8));
+                            } else {
+                                ctx.setFailureReason(notes);
+                            }
+                            reportData.addFailed(ctx);
+                        } else {
+                            reportData.addCompleted(ctx);
+                        }
+                    }
+                    LOGGER.info("Rebuilt reportData from results: {} completed, {} failed",
+                            reportData.getCompleted().size(), reportData.getFailed().size());
+                }
+                
+                // Fail-safe 2: If still empty, add a placeholder
+                if (reportData.getCompleted().isEmpty() && reportData.getFailed().isEmpty()) {
+                    LOGGER.warn("ReportData and results are both empty. Adding placeholder.");
+                    OrderContext ctx = new OrderContext("N/A", "0s");
+                    ctx.setFailureReason("Test execution failed before any orders could be processed");
+                    ctx.addStep("Execution", "FAILED");
+                    reportData.addFailed(ctx);
+                }
+                
+                // Force write the report
+                LOGGER.info("Writing final report: {} completed, {} failed, {} total requested",
                         reportData.getCompleted().size(), reportData.getFailed().size(), requestedOrderCount);
+                ReportWriter.write(reportData);
+                LOGGER.info("Final execution report written successfully");
+                
+                // Verify the report was written
+                java.nio.file.Path reportPath = Paths.get("target", "execution-report.txt");
+                if (Files.exists(reportPath)) {
+                    LOGGER.info("Report file exists at: {}", reportPath.toAbsolutePath());
+                } else {
+                    LOGGER.error("Report file was NOT created at: {}", reportPath.toAbsolutePath());
+                }
             } catch (Exception reportEx) {
                 LOGGER.error("Failed to generate final execution report: {}", reportEx.getMessage());
+                reportEx.printStackTrace();
+                // Last resort: Write a minimal report directly from results
+                try {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("════════════════════════════════════════\n");
+                    sb.append("Flow            : ").append(orderFlow).append("\n");
+                    sb.append("Environment     : ").append(targetEnv).append("\n");
+                    sb.append("Runs Requested  : ").append(requestedOrderCount).append("\n");
+                    sb.append("Completed       : 0\n");
+                    sb.append("Failed          : ").append(results.size()).append("\n");
+                    sb.append("Failed Orders   : \n");
+                    for (ExecutionResult r : results) {
+                        sb.append("  - Order ").append(r.iteration()).append(": ").append(r.notes()).append("\n");
+                    }
+                    sb.append("════════════════════════════════════════\n");
+                    Files.writeString(Paths.get("target", "execution-report.txt"), sb.toString());
+                    Files.writeString(Paths.get("target", "execution-report.html"), 
+                            "<html><body><h1>Test Execution Failed</h1><pre>" + sb.toString().replace("<", "&lt;").replace(">", "&gt;") + "</pre></body></html>");
+                    LOGGER.info("Minimal report written as fallback");
+                } catch (Exception e) {
+                    LOGGER.error("Failed to write minimal report: {}", e.getMessage());
+                }
             }
         }
 

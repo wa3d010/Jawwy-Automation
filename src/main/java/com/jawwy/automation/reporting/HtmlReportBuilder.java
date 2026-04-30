@@ -125,14 +125,15 @@ public class HtmlReportBuilder {
 
             for (int i = 0; i < orders.size(); i++) {
                 OrderContext ctx = orders.get(i);
-                String orderId = ctx.getOrderId() != null ? ctx.getOrderId() : "N/A";
+                String orderId = ctx.getOrderId() != null && !ctx.getOrderId().trim().isEmpty() ? ctx.getOrderId() : "N/A";
                 String failureReason = buildBusinessFriendlyReason(ctx);
+                String duration = ctx.getRunDuration() != null ? ctx.getRunDuration() : "N/A";
 
                 sb.append("<tr style='border-bottom:1px solid #f0f0f0'>")
                   .append("<td>").append(i + 1).append("</td>")
                   .append("<td><b>").append(orderId).append("</b></td>")
                   .append("<td>").append(flow).append("</td>")
-                  .append("<td>").append(ctx.getRunDuration()).append("</td>")
+                  .append("<td>").append(duration).append("</td>")
                   .append("<td><span style='background:#FCEBEB;color:#A32D2D;padding:4px 10px;border-radius:20px'>FAILED</span></td>")
                   .append("<td style='max-width:350px;word-wrap:break-word'>")
                   .append("<div style='color:#A32D2D;font-weight:600;font-size:12px'>")
