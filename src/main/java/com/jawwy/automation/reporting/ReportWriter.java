@@ -61,6 +61,11 @@ public class ReportWriter {
                         .append(" | Duration: ").append(ctx.getRunDuration())
                         .append(" | Reason: ").append(ctx.getFailureReason() != null ? ctx.getFailureReason() : "-")
                         .append("\n");
+                if (ctx.getRecommendedFix() != null && !ctx.getRecommendedFix().isBlank()) {
+                    sb.append("                    Recommended Fix: ")
+                            .append(ctx.getRecommendedFix())
+                            .append("\n");
+                }
                 appendSteps(sb, ctx);
             }
         }

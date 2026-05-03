@@ -8,12 +8,14 @@ public class OrderContext {
     private String orderId;
     private String runDuration;
     private String failureReason;
+    private String recommendedFix;
     private final List<StepExecution> stepLog = new ArrayList<>();
 
     public OrderContext(String orderId, String runDuration) {
         this.orderId = orderId;
         this.runDuration = runDuration;
         this.failureReason = null;
+        this.recommendedFix = null;
     }
 
     public void addStep(String stepName, String status) {
@@ -28,6 +30,10 @@ public class OrderContext {
         this.failureReason = reason;
     }
 
+    public void setRecommendedFix(String recommendedFix) {
+        this.recommendedFix = recommendedFix;
+    }
+
     public String getOrderId() {
         return orderId;
     }
@@ -38,6 +44,10 @@ public class OrderContext {
 
     public String getFailureReason() {
         return failureReason;
+    }
+
+    public String getRecommendedFix() {
+        return recommendedFix;
     }
 
     public List<StepExecution> getStepLog() {

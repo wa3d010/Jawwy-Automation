@@ -84,7 +84,7 @@ pipeline {
                 echo "Business Flow: ${params.ORDER_FLOW} | Env: ${params.TARGET_ENV} | Order Count: ${params.ORDER_COUNT}"
 
                 bat '''
-                    mvn -q clean test ^
+                    call mvn -q clean test ^
                       -Denv=%JAWWY_ENV% ^
                       -Dtest=SpBatchTest ^
                       -Dorder.count=%ORDER_COUNT% ^
@@ -113,14 +113,6 @@ pipeline {
 
         stage('Publish Reports') {
             steps {
-                archiveArtifacts artifacts: '''
-                    target/execution-report.html,
-                    target/execution-report.css,
-                    target/execution-report.txt,
-                    target/surefire-reports/**/*,
-                    logs/**/*
-                ''', allowEmptyArchive: true
-
                 junit testResults: 'target/surefire-reports/*.xml',
                       allowEmptyResults: true
 

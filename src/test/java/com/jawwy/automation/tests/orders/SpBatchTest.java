@@ -1,6 +1,7 @@
 package com.jawwy.automation.tests.orders;
 
 import com.jawwy.automation.models.OrderContext;
+import com.jawwy.automation.reporting.FlowFailureHandler;
 import com.jawwy.automation.reporting.ReportData;
 import com.jawwy.automation.reporting.ReportWriter;
 import com.jawwy.automation.tests.BaseEocTest;
@@ -15,9 +16,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,13 +28,6 @@ import java.util.List;
 public class SpBatchTest extends BaseEocTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpBatchTest.class);
-
-    private static final Path REPORT_DIRECTORY = Paths.get("target", "jenkins");
-    private static final Path SUMMARY_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.md");
-    private static final Path CSV_REPORT = REPORT_DIRECTORY.resolve("sp-batch-summary.csv");
-    private static final Path DASHBOARD_DIRECTORY = REPORT_DIRECTORY.resolve("dashboard");
-    private static final Path DASHBOARD_INDEX = DASHBOARD_DIRECTORY.resolve("index.html");
-    private static final Path DASHBOARD_CSS = DASHBOARD_DIRECTORY.resolve("style.css");
 
     private final String orderFlow = resolveOrderFlow();
     private final String targetEnv = resolveTargetEnv();
@@ -65,11 +57,11 @@ public class SpBatchTest extends BaseEocTest {
         try {
             for (int iteration = 1; iteration <= requestedOrderCount; iteration++) {
 
-                JawwyOrderJourney journey = new JawwyOrderJourney(orderFlow);
+                JawwyOrderJourney journey = null;
                 Instant startedAt = Instant.now();
-                boolean orderSucceeded = false;
 
                 try {
+                    journey = new JawwyOrderJourney(orderFlow);
                     String orderId = journey.runFullFlow();
                     Duration executionDuration = Duration.between(startedAt, Instant.now());
 
@@ -92,7 +84,6 @@ public class SpBatchTest extends BaseEocTest {
                         }
                     }
                     reportData.addCompleted(ctx);
-                    orderSucceeded = true;
 
                 } catch (Throwable ex) {
                     if (ex instanceof VirtualMachineError || ex instanceof ThreadDeath) {
@@ -101,20 +92,26 @@ public class SpBatchTest extends BaseEocTest {
                     Duration executionDuration = Duration.between(startedAt, Instant.now());
                     String orderId = null;
                     String stepStatuses = "";
-                    String failureMsg = summarizeFailure(ex);
+                    String failureMsg = FlowFailureHandler.rawReason(ex);
 
                     // Safely extract order info even if journey failed early
-                    try {
-                        orderId = journey.getCreatedOrderId();
-                    } catch (Exception e) {
-                        LOGGER.warn("Could not get orderId after failure: {}", e.getMessage());
+                    if (journey != null) {
+                        try {
+                            orderId = journey.getCreatedOrderId();
+                        } catch (Exception e) {
+                            LOGGER.warn("Could not get orderId after failure: {}", e.getMessage());
+                        }
                     }
 
-                    try {
-                        stepStatuses = summarizeStepStatuses(journey);
-                    } catch (Exception e) {
-                        LOGGER.warn("Could not get step statuses after failure: {}", e.getMessage());
-                        stepStatuses = "Create Order=UNKNOWN";
+                    if (journey != null) {
+                        try {
+                            stepStatuses = summarizeStepStatuses(journey);
+                        } catch (Exception e) {
+                            LOGGER.warn("Could not get step statuses after failure: {}", e.getMessage());
+                        }
+                    }
+                    if (isBlank(stepStatuses)) {
+                        stepStatuses = initialFailureStep(ex);
                     }
 
                     ExecutionResult result = ExecutionResult.failed(
@@ -141,7 +138,7 @@ public class SpBatchTest extends BaseEocTest {
                                 }
                             }
                         }
-                        ctx.setFailureReason(failureMsg);
+                        FlowFailureHandler.applyFailure(iteration, ctx, ex, stepStatuses);
                         reportData.addFailed(ctx);
                         LOGGER.info("Added failed order {} to report data (orderId: {}, steps: {})",
                                 iteration, orderId != null ? orderId : "N/A", ctx.getStepLog().size());
@@ -153,7 +150,6 @@ public class SpBatchTest extends BaseEocTest {
                     }
 
                     LOGGER.error("Order {} failed: {}", iteration, failureMsg);
-                    orderSucceeded = false;
                     // Continue with next order - DO NOT stop on failure
                 }
 
@@ -163,13 +159,7 @@ public class SpBatchTest extends BaseEocTest {
                 LOGGER.info("Progress after order {}: {} completed, {} failed, {} total processed",
                         iteration, completedCount, failedCount, completedCount + failedCount);
 
-                // Write reports after each order (incremental updates)
-                try {
-                    writeReports(requestedOrderCount, results);
-                } catch (Exception writeEx) {
-                    LOGGER.error("Failed to write incremental reports: {}", writeEx.getMessage());
-                    // Continue even if report writing fails
-                }
+                writeExecutionReportSafely(reportData);
             }
         } finally {
             // ALWAYS generate final reports, even if loop threw an exception
@@ -198,6 +188,7 @@ public class SpBatchTest extends BaseEocTest {
                             } else {
                                 ctx.setFailureReason(notes);
                             }
+                            ctx.setRecommendedFix("Rerun the workflow and inspect the full console output.");
                             reportData.addFailed(ctx);
                         } else {
                             reportData.addCompleted(ctx);
@@ -274,14 +265,12 @@ public class SpBatchTest extends BaseEocTest {
 
     /* ================= Report Writers ================= */
 
-    private void writeReports(int requestedOrderCount, List<ExecutionResult> results) throws IOException {
-        Files.createDirectories(REPORT_DIRECTORY);
-        Files.createDirectories(DASHBOARD_DIRECTORY);
-
-        Files.writeString(SUMMARY_REPORT, buildMarkdownSummary(requestedOrderCount, results));
-        Files.writeString(CSV_REPORT, buildCsvSummary(results));
-        Files.writeString(DASHBOARD_CSS, buildDashboardCss());
-        Files.writeString(DASHBOARD_INDEX, buildHtmlDashboard(requestedOrderCount, results));
+    private void writeExecutionReportSafely(ReportData reportData) {
+        try {
+            ReportWriter.write(reportData);
+        } catch (Exception writeEx) {
+            LOGGER.error("Failed to write execution report: {}", writeEx.getMessage());
+        }
     }
 
     private String resolveAllureReportUrl() {
@@ -761,37 +750,12 @@ public class SpBatchTest extends BaseEocTest {
         return String.join(" ; ", journey.getStepStatuses());
     }
 
-    private String summarizeFailure(Throwable ex) {
-        Throwable failure = rootCause(ex);
-        String message = failure.getMessage();
-        
-        // Extract the key failure information
-        if (message != null) {
-            // Check for server errors
-            if (message.contains("Mockoon is not started")) {
-                return message;
-            }
-            
-            // Extract the failing step from stack trace if available
-            String[] lines = message.split("\\n");
-            if (lines.length > 0) {
-                String firstLine = lines[0];
-                // Return the key error message
-                if (firstLine.contains("Expected status code")) {
-                    return firstLine;
-                }
-            }
+    private String initialFailureStep(Throwable ex) {
+        String message = FlowFailureHandler.rawReason(ex);
+        if (message != null && message.contains("nothing is listening on localhost:8081")) {
+            return "Environment Validation=FAILED";
         }
-        
-        return failure.getClass().getSimpleName() + ": " + (message != null ? message : "Unknown error");
-    }
-
-    private Throwable rootCause(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        return current;
+        return "Create Order=FAILED";
     }
 
     private String formatDuration(Duration duration) {
