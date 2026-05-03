@@ -65,20 +65,30 @@ public class JawwyOrderJourney {
     }
 
     public String createOrder() throws Exception {
-        if (isMnpFlow()) {
-            createdOrderId = ordersApiClient.createMnpPortInOfflineOrder();
-        } else {
-            createdOrderId = ordersApiClient.createNewActivationOrder();
+        try {
+            if (isMnpFlow()) {
+                createdOrderId = ordersApiClient.createMnpPortInOfflineOrder();
+            } else {
+                createdOrderId = ordersApiClient.createNewActivationOrder();
+            }
+            extractedLmdId = null;
+            recordStep("Create Order", "PASSED");
+            return createdOrderId;
+        } catch (Exception exception) {
+            recordStep("Create Order", "FAILED");
+            throw exception;
         }
-        extractedLmdId = null;
-        recordStep("Create Order", "PASSED");
-        return createdOrderId;
     }
 
     public void sendBiometrics() {
-        biometricsClient.send(requireCreatedOrderId());
-        ActionLogger.step(LOGGER, "Biometrics callback completed");
-        recordStep("Biometrics Callback", "PASSED");
+        try {
+            biometricsClient.send(requireCreatedOrderId());
+            ActionLogger.step(LOGGER, "Biometrics callback completed");
+            recordStep("Biometrics Callback", "PASSED");
+        } catch (RuntimeException | AssertionError exception) {
+            recordStep("Biometrics Callback", "FAILED");
+            throw exception;
+        }
     }
 
     public void sendLmd106() {
@@ -86,6 +96,7 @@ public class JawwyOrderJourney {
             try {
                 extractedLmdId = orderMessageRepository.extractLmdId(requireCreatedOrderId(), orderFlow);
             } catch (Exception exception) {
+                recordStep("Resolve LMD ID", "FAILED");
                 throw new IllegalStateException("Unable to resolve LMD ID for order " + requireCreatedOrderId(), exception);
             }
 
@@ -98,9 +109,14 @@ public class JawwyOrderJourney {
             recordStep("Resolve LMD ID", "PASSED");
         }
 
-        lmdCallbackClient.send(requireExtractedLmdId());
-        ActionLogger.step(LOGGER, "LMD106 callback completed");
-        recordStep("LMD106 Callback", "PASSED");
+        try {
+            lmdCallbackClient.send(requireExtractedLmdId());
+            ActionLogger.step(LOGGER, "LMD106 callback completed");
+            recordStep("LMD106 Callback", "PASSED");
+        } catch (RuntimeException | AssertionError exception) {
+            recordStep("LMD106 Callback", "FAILED");
+            throw exception;
+        }
     }
 
     public void sendComptelCallbacks() throws Exception {
@@ -114,7 +130,12 @@ public class JawwyOrderJourney {
 
             for (String id : ids) {
                 if (!sentIds.contains(id)) {
-                    comptelCallbackClient.send(id);
+                    try {
+                        comptelCallbackClient.send(id);
+                    } catch (RuntimeException | AssertionError exception) {
+                        recordStep("Comptel Callbacks", "FAILED");
+                        throw exception;
+                    }
                     sentIds.add(id);
                     ActionLogger.step(LOGGER, "Comptel callback sent for ID " + id);
                     sentNewId = true;
@@ -159,14 +180,24 @@ public class JawwyOrderJourney {
             return;
         }
 
-        provisioningCallbackClient.send(requireCreatedOrderId(), Instant.now());
-        ActionLogger.step(LOGGER, "Provisioning callback completed");
-        recordStep("Provisioning Callback", "PASSED");
+        try {
+            provisioningCallbackClient.send(requireCreatedOrderId(), Instant.now());
+            ActionLogger.step(LOGGER, "Provisioning callback completed");
+            recordStep("Provisioning Callback", "PASSED");
+        } catch (RuntimeException | AssertionError exception) {
+            recordStep("Provisioning Callback", "FAILED");
+            throw exception;
+        }
     }
 
     public void handleManualTask() {
         String orderId = requireCreatedOrderId();
-        manualTaskProcessor.processSharingLimitsTask(orderId);
+        try {
+            manualTaskProcessor.processSharingLimitsTask(orderId);
+        } catch (RuntimeException | AssertionError exception) {
+            recordStep("Manual Task UI", "FAILED");
+            throw exception;
+        }
         ActionLogger.step(LOGGER,
                 "Manual task UI actions completed. Verifying backend state.");
 
@@ -267,6 +298,7 @@ public class JawwyOrderJourney {
             }
 
             if (portReqFormId == null) {
+                recordStep("Resolve portReqFormID", "FAILED");
                 recordStep("MNP-Ack Callback", "FAILED");
                 throw ActionLogger.failure(LOGGER, "portReqFormID was not found for MNP order " + requireCreatedOrderId());
             }
@@ -274,15 +306,23 @@ public class JawwyOrderJourney {
             ActionLogger.step(LOGGER, "Resolved portReqFormID " + portReqFormId + " for MNP order " + requireCreatedOrderId());
             recordStep("Resolve portReqFormID", "PASSED");
 
-            // Send MNP-Ack callback
-            mnpAckCallbackClient.send(portReqFormId);
-            ActionLogger.step(LOGGER, "MNP-Ack callback completed");
-            recordStep("MNP-Ack Callback", "PASSED");
+            try {
+                mnpAckCallbackClient.send(portReqFormId);
+                ActionLogger.step(LOGGER, "MNP-Ack callback completed");
+                recordStep("MNP-Ack Callback", "PASSED");
+            } catch (RuntimeException | AssertionError exception) {
+                recordStep("MNP-Ack Callback", "FAILED");
+                throw exception;
+            }
 
-            // Send MNP-Accept callback with the same portReqFormID
-            mnpAcceptCallbackClient.send(portReqFormId);
-            ActionLogger.step(LOGGER, "MNP-Accept callback completed");
-            recordStep("MNP-Accept Callback", "PASSED");
+            try {
+                mnpAcceptCallbackClient.send(portReqFormId);
+                ActionLogger.step(LOGGER, "MNP-Accept callback completed");
+                recordStep("MNP-Accept Callback", "PASSED");
+            } catch (RuntimeException | AssertionError exception) {
+                recordStep("MNP-Accept Callback", "FAILED");
+                throw exception;
+            }
         }
     }
 

@@ -86,7 +86,7 @@ public class SpBatchTest extends BaseEocTest {
                     // Add to new report data
                     OrderContext ctx = new OrderContext(orderId, formatDuration(executionDuration));
                     for (String step : journey.getStepStatuses()) {
-                        String[] parts = step.split("=");
+                        String[] parts = step.split("=", 2);
                         if (parts.length == 2) {
                             ctx.addStep(parts[0].trim(), parts[1].trim());
                         }
@@ -94,7 +94,10 @@ public class SpBatchTest extends BaseEocTest {
                     reportData.addCompleted(ctx);
                     orderSucceeded = true;
 
-                } catch (Exception ex) {
+                } catch (Throwable ex) {
+                    if (ex instanceof VirtualMachineError || ex instanceof ThreadDeath) {
+                        throw ex;
+                    }
                     Duration executionDuration = Duration.between(startedAt, Instant.now());
                     String orderId = null;
                     String stepStatuses = "";
@@ -132,7 +135,7 @@ public class SpBatchTest extends BaseEocTest {
                         // Add all steps that were recorded before failure
                         if (stepStatuses != null && !stepStatuses.isEmpty()) {
                             for (String step : stepStatuses.split("\\s*;\\s*")) {
-                                String[] parts = step.split("=");
+                                String[] parts = step.split("=", 2);
                                 if (parts.length == 2) {
                                     ctx.addStep(parts[0].trim(), parts[1].trim());
                                 }
@@ -178,8 +181,11 @@ public class SpBatchTest extends BaseEocTest {
                         OrderContext ctx = new OrderContext(r.orderId(), formatDuration(r.duration()));
                         if (r.notes() != null) {
                             for (String step : r.notes().split("\\s*;\\s*")) {
-                                String[] parts = step.split("=");
+                                String[] parts = step.split("=", 2);
                                 if (parts.length == 2) {
+                                    if ("failure".equalsIgnoreCase(parts[0].trim())) {
+                                        continue;
+                                    }
                                     ctx.addStep(parts[0].trim(), parts[1].trim());
                                 }
                             }
@@ -241,8 +247,12 @@ public class SpBatchTest extends BaseEocTest {
                     }
                     sb.append("════════════════════════════════════════\n");
                     Files.writeString(Paths.get("target", "execution-report.txt"), sb.toString());
-                    Files.writeString(Paths.get("target", "execution-report.html"), 
-                            "<html><body><h1>Test Execution Failed</h1><pre>" + sb.toString().replace("<", "&lt;").replace(">", "&gt;") + "</pre></body></html>");
+                    Files.writeString(Paths.get("target", "execution-report.html"),
+                            "<html><head><link rel=\"stylesheet\" href=\"execution-report.css\"></head><body><main class=\"page\"><section class=\"card\"><h1>Test Execution Failed</h1><pre>"
+                                    + sb.toString().replace("<", "&lt;").replace(">", "&gt;")
+                                    + "</pre></section></main></body></html>");
+                    Files.writeString(Paths.get("target", "execution-report.css"),
+                            "body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fb;color:#111827}.page{max-width:1180px;margin:0 auto;padding:28px 18px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:18px}pre{white-space:pre-wrap}");
                     LOGGER.info("Minimal report written as fallback");
                 } catch (Exception e) {
                     LOGGER.error("Failed to write minimal report: {}", e.getMessage());
@@ -751,8 +761,9 @@ public class SpBatchTest extends BaseEocTest {
         return String.join(" ; ", journey.getStepStatuses());
     }
 
-    private String summarizeFailure(Exception ex) {
-        String message = ex.getMessage();
+    private String summarizeFailure(Throwable ex) {
+        Throwable failure = rootCause(ex);
+        String message = failure.getMessage();
         
         // Extract the key failure information
         if (message != null) {
@@ -772,7 +783,15 @@ public class SpBatchTest extends BaseEocTest {
             }
         }
         
-        return ex.getClass().getSimpleName() + ": " + (message != null ? message : "Unknown error");
+        return failure.getClass().getSimpleName() + ": " + (message != null ? message : "Unknown error");
+    }
+
+    private Throwable rootCause(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     private String formatDuration(Duration duration) {

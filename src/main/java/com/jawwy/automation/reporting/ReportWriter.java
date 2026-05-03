@@ -1,15 +1,16 @@
 package com.jawwy.automation.reporting;
 
 import com.jawwy.automation.models.OrderContext;
-import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class ReportWriter {
 
     private static final String TARGET_DIR = "target";
-    private static final String TXT_PATH   = TARGET_DIR + "/execution-report.txt";
-    private static final String HTML_PATH  = TARGET_DIR + "/execution-report.html";
+    private static final String TXT_PATH = TARGET_DIR + "/execution-report.txt";
+    private static final String HTML_PATH = TARGET_DIR + "/execution-report.html";
+    private static final String CSS_PATH = TARGET_DIR + "/execution-report.css";
 
     public static void write(ReportData data) throws Exception {
         Files.createDirectories(Paths.get(TARGET_DIR));
@@ -19,21 +20,18 @@ public class ReportWriter {
 
     private static void writeTxt(ReportData data) throws Exception {
         String content = buildTxt(data);
-        try (FileWriter fw = new FileWriter(TXT_PATH, false)) {
-            fw.write(content);
-        }
+        Files.writeString(Paths.get(TXT_PATH), content, StandardCharsets.UTF_8);
         System.out.println(content);
     }
 
     private static void writeHtml(ReportData data) throws Exception {
-        try (FileWriter fw = new FileWriter(HTML_PATH, false)) {
-            fw.write(HtmlReportBuilder.build(data));
-        }
+        Files.writeString(Paths.get(HTML_PATH), HtmlReportBuilder.build(data), StandardCharsets.UTF_8);
+        Files.writeString(Paths.get(CSS_PATH), HtmlReportBuilder.css(), StandardCharsets.UTF_8);
     }
 
     private static String buildTxt(ReportData data) {
         StringBuilder sb = new StringBuilder();
-        sb.append("════════════════════════════════════════\n");
+        sb.append("========================================\n");
         sb.append("Flow            : ").append(data.getFlow()).append("\n");
         sb.append("Environment     : ").append(data.getEnvironment()).append("\n");
         sb.append("Runs Requested  : ").append(data.getRuns()).append("\n");
@@ -48,6 +46,7 @@ public class ReportWriter {
             for (OrderContext ctx : data.getCompleted()) {
                 sb.append("                  ").append(ctx.getOrderId())
                         .append(" | Duration: ").append(ctx.getRunDuration()).append("\n");
+                appendSteps(sb, ctx);
             }
         }
 
@@ -62,11 +61,28 @@ public class ReportWriter {
                         .append(" | Duration: ").append(ctx.getRunDuration())
                         .append(" | Reason: ").append(ctx.getFailureReason() != null ? ctx.getFailureReason() : "-")
                         .append("\n");
+                appendSteps(sb, ctx);
             }
         }
 
         sb.append("Time            : ").append(data.getTimestamp()).append("\n");
-        sb.append("════════════════════════════════════════\n");
+        sb.append("========================================\n");
         return sb.toString();
+    }
+
+    private static void appendSteps(StringBuilder sb, OrderContext ctx) {
+        if (ctx.getStepLog().isEmpty()) {
+            sb.append("                    Steps: No stages were recorded\n");
+            return;
+        }
+
+        sb.append("                    Steps:\n");
+        for (OrderContext.StepExecution step : ctx.getStepLog()) {
+            sb.append("                      - ")
+                    .append(step.getStepName())
+                    .append(": ")
+                    .append(step.getStatus())
+                    .append("\n");
+        }
     }
 }

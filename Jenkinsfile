@@ -115,6 +115,7 @@ pipeline {
             steps {
                 archiveArtifacts artifacts: '''
                     target/execution-report.html,
+                    target/execution-report.css,
                     target/execution-report.txt,
                     target/surefire-reports/**/*,
                     logs/**/*
@@ -126,6 +127,7 @@ pipeline {
                 publishHTML([
                     reportDir: 'target',
                     reportFiles: 'execution-report.html',
+                    includes: 'execution-report.css',
                     reportName: 'Execution Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
