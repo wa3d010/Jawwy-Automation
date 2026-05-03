@@ -212,7 +212,7 @@ public class ManualTaskProcessor {
             throw ActionLogger.failure(LOGGER, "No row found for Order ID: " + orderId);
         }
 
-        ActionLogger.step(LOGGER, "SHARING_LIMITS task detected for order " + orderId);
+        ActionLogger.step(LOGGER, "SHARING_LIMITS_COMP task detected for order " + orderId);
         worklistPage.startWork(row);
         ActionLogger.step(LOGGER, "Task started successfully");
         worklistPage.skipTask(row);
@@ -227,6 +227,7 @@ public class ManualTaskProcessor {
     private Locator waitForSharingLimitsRow(WorklistPage worklistPage, String orderId) {
         long deadline = System.currentTimeMillis() + config.manualTaskTimeoutMs();
         int attempt = 0;
+        String lastRowText = null;
 
         while (System.currentTimeMillis() < deadline) {
             attempt++;
@@ -238,10 +239,13 @@ public class ManualTaskProcessor {
             Locator row = worklistPage.findRow(orderId);
             if (row.count() > 0) {
                 String rowText = row.innerText();
-                if (rowText.contains("SHARING_LIMITS")) {
+                lastRowText = rowText;
+                if (isSharingLimitsTask(rowText)) {
+                    LOGGER.info("Manual task row found for order {}: {}", orderId, rowText);
                     return row;
                 }
-                LOGGER.info("Manual task row found for order {} but state is not SHARING_LIMITS yet", orderId);
+                LOGGER.info("Manual task row found for order {} but stage is not SHARING_LIMITS_COMP yet. Row text: {}",
+                        orderId, rowText);
             }
 
             try {
@@ -255,7 +259,19 @@ public class ManualTaskProcessor {
             }
         }
 
+        if (lastRowText != null) {
+            throw ActionLogger.failure(LOGGER,
+                    "Order " + orderId + " was found in worklist, but expected SHARING_LIMITS_COMP task was not ready. Last row text: "
+                            + lastRowText);
+        }
         return null;
+    }
+
+    private boolean isSharingLimitsTask(String rowText) {
+        if (rowText == null) {
+            return false;
+        }
+        return rowText.contains("SHARING_LIMITS_COMP") || rowText.contains("SHARING_LIMITS");
     }
 
     private static ExecutorService createExecutorService() {

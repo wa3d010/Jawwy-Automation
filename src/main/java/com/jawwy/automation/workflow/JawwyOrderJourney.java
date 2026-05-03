@@ -50,8 +50,10 @@ public class JawwyOrderJourney {
 
     public String runFullFlow() throws Exception {
         createOrder();
-        sendBiometrics();
-        sendLmd106();
+        if (!isNewActivationOfflineFlow()) {
+            sendBiometrics();
+            sendLmd106();
+        }
         
         // MNP-specific flow
         if (isMnpFlow()) {
@@ -68,6 +70,8 @@ public class JawwyOrderJourney {
         try {
             if (isMnpFlow()) {
                 createdOrderId = ordersApiClient.createMnpPortInOfflineOrder();
+            } else if (isNewActivationOfflineFlow()) {
+                createdOrderId = ordersApiClient.createNewActivationOfflineOrder();
             } else {
                 createdOrderId = ordersApiClient.createNewActivationOrder();
             }
@@ -328,6 +332,11 @@ public class JawwyOrderJourney {
 
     private boolean isMnpFlow() {
         return orderFlow != null && orderFlow.toLowerCase().contains("mnp");
+    }
+
+    private boolean isNewActivationOfflineFlow() {
+        String normalized = orderFlow == null ? "" : orderFlow.toLowerCase();
+        return normalized.contains("new activation") && normalized.contains("offline");
     }
 
     private String resolveOrderFlow() {

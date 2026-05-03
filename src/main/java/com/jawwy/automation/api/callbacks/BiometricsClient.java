@@ -18,12 +18,13 @@ public class BiometricsClient extends ApiSupport {
 
     public void send(String orderId) {
         ActionLogger.step(LOGGER, "Sending Biometrics callback for order " + orderId);
+
         String template = PayloadLoader.load("payloads/callbacks/Biometrics.json");
         String body = TemplateEngine.apply(template, Map.of("orderId", orderId));
 
         sleep(config.biometricsInitialDelayMs(), "Interrupted before sending biometrics callback.");
 
-        AssertionError lastFailure = null;
+        RuntimeException lastFailure = null;
 
         for (int attempt = 1; attempt <= config.biometricsRetries(); attempt++) {
             try {
@@ -36,27 +37,51 @@ public class BiometricsClient extends ApiSupport {
                         .post("/{app}/validate/biometrics/{orderId}");
 
                 int actualStatus = response.statusCode();
+
                 if (actualStatus == 200) {
-                    return;
+                    return; // ✅ SUCCESS
                 }
 
                 String responseBody = safeResponseBody(response);
-                String helpfulMsg = actualStatus >= 500 ? " [Server Error: Mockoon is not started, or environment is being checked by dev now!]" : "";
-                throw new AssertionError("Expected status code <200> but was <" + actualStatus + ">."
-                        + " Biometrics response body: " + responseBody + helpfulMsg);
-            } catch (AssertionError failure) {
+
+                String rootHint =
+                        actualStatus >= 500
+                                ? "Mockoon is not started or backend service is unreachable"
+                                : "Unexpected client error from backend";
+
+                throw new RuntimeException(
+                        "Biometrics callback failed. HTTP "
+                                + actualStatus
+                                + ". "
+                                + rootHint
+                                + ". Response body: "
+                                + responseBody
+                );
+
+            } catch (RuntimeException failure) {
                 lastFailure = failure;
+
                 if (attempt == config.biometricsRetries()) {
-                    throw failure;
+                    break;
                 }
 
-                ActionLogger.warn(LOGGER,
-                        "Biometrics callback attempt " + attempt + "/" + config.biometricsRetries()
-                                + " failed for order " + orderId + ". " + failure.getMessage() + " Retrying...");
-                sleep(config.biometricsRetryIntervalMs(), "Interrupted while retrying biometrics callback.");
+                ActionLogger.warn(
+                        LOGGER,
+                        "Biometrics callback attempt "
+                                + attempt + "/" + config.biometricsRetries()
+                                + " failed for order " + orderId
+                                + ". " + failure.getMessage()
+                                + " Retrying..."
+                );
+
+                sleep(
+                        config.biometricsRetryIntervalMs(),
+                        "Interrupted while retrying biometrics callback."
+                );
             }
         }
 
+        // ✅ Final failure after retries — bubble up as RuntimeException
         if (lastFailure != null) {
             throw lastFailure;
         }
@@ -65,7 +90,7 @@ public class BiometricsClient extends ApiSupport {
     private String safeResponseBody(Response response) {
         try {
             String body = response.getBody().asString();
-            return body == null || body.isBlank() ? "<empty>" : body;
+            return (body == null || body.isBlank()) ? "<empty>" : body;
         } catch (RuntimeException exception) {
             LOGGER.warn("Unable to read biometrics response body", exception);
             return "<unavailable>";

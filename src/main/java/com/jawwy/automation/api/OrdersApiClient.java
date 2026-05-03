@@ -25,21 +25,36 @@ public class OrdersApiClient extends ApiSupport {
         return createOrderByPayload("payloads/orders/NewAct-Online.json");
     }
 
+    @Step("Create Jawwy offline activation order")
+    public String createNewActivationOfflineOrder() {
+        return createOrderByPayload("payloads/orders/NewAct-Offline.json");
+    }
+
     @Step("Create MNP Port In Offline order")
     public String createMnpPortInOfflineOrder() {
         return createOrderByPayload("payloads/orders/MNP-IN-Off.json");
     }
 
     public String createOrderByFlow(String orderFlow) {
-        String payloadPath = isMnpFlow(orderFlow)
-                ? "payloads/orders/MNP-IN-Off.json"
-                : "payloads/orders/NewAct-Online.json";
+        String payloadPath;
+        if (isMnpFlow(orderFlow)) {
+            payloadPath = "payloads/orders/MNP-IN-Off.json";
+        } else if (isNewActivationOfflineFlow(orderFlow)) {
+            payloadPath = "payloads/orders/NewAct-Offline.json";
+        } else {
+            payloadPath = "payloads/orders/NewAct-Online.json";
+        }
 
         return createOrderByPayload(payloadPath);
     }
 
     private boolean isMnpFlow(String orderFlow) {
         return orderFlow != null && orderFlow.toLowerCase().contains("mnp");
+    }
+
+    private boolean isNewActivationOfflineFlow(String orderFlow) {
+        String normalized = orderFlow == null ? "" : orderFlow.toLowerCase();
+        return normalized.contains("new activation") && normalized.contains("offline");
     }
 
     @Step("Create order through EOC order API")

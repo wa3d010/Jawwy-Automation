@@ -222,12 +222,13 @@ public class WorklistPage {
 
     private void selectTaskCheckbox(Locator row) {
         Locator[] candidateTriggers = new Locator[]{
-                page.locator("tr[role='listitem'] span[eventpart='valueicon']").first(),
-                page.locator("span[eventpart='valueicon']").first(),
-                page.locator("[eventpart='valueicon']").first(),
                 row.locator("span[eventpart='valueicon']").first(),
                 row.locator("[eventpart='valueicon']").first(),
-                row.locator("input[type='checkbox']").first()
+                row.locator("input[type='checkbox']").first(),
+                row.locator("td").first(),
+                page.locator("tr[role='listitem'] span[eventpart='valueicon']").first(),
+                page.locator("span[eventpart='valueicon']").first(),
+                page.locator("[eventpart='valueicon']").first()
         };
 
         for (Locator candidateTrigger : candidateTriggers) {
@@ -242,6 +243,15 @@ public class WorklistPage {
             } catch (PlaywrightException ignored) {
                 // Try the next possible checkbox trigger.
             }
+        }
+
+        try {
+            row.scrollIntoViewIfNeeded();
+            row.click(new Locator.ClickOptions().setForce(true).setTimeout(2000));
+            page.waitForTimeout(200);
+            return;
+        } catch (PlaywrightException ignored) {
+            // Try a final DOM fallback below.
         }
 
         try {

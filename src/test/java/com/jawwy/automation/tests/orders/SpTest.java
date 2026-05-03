@@ -34,12 +34,18 @@ public class SpTest extends BaseEocTest {
     @Test(dependsOnMethods = "createOrderTest", description = "Send biometrics callback")
     @Feature("Callbacks")
     public void sendBiometricsTest() {
+        if (isNewActivationOfflineFlow()) {
+            return;
+        }
         journey.sendBiometrics();
     }
 
     @Test(dependsOnMethods = "sendBiometricsTest", description = "Send LMD106 callback")
     @Feature("Callbacks")
     public void sendLmd106Test() {
+        if (isNewActivationOfflineFlow()) {
+            return;
+        }
         journey.sendLmd106();
     }
 
@@ -49,8 +55,6 @@ public class SpTest extends BaseEocTest {
         String flow = journey.getOrderFlow();
         if (flow != null && flow.toLowerCase().contains("mnp")) {
             journey.sendMnpAck();
-        } else {
-            throw new SkipException("Skipped: Not an MNP flow");
         }
     }
 
@@ -89,5 +93,10 @@ public class SpTest extends BaseEocTest {
             flow = System.getenv("ORDER_FLOW");
         }
         return (flow == null || flow.trim().isEmpty()) ? "New Activation Online" : flow.trim();
+    }
+
+    private boolean isNewActivationOfflineFlow() {
+        String normalized = orderFlow == null ? "" : orderFlow.toLowerCase();
+        return normalized.contains("new activation") && normalized.contains("offline");
     }
 }
