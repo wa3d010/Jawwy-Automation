@@ -107,7 +107,7 @@ pipeline {
                         echo No batch summary found.
                     )
                 '''
-                echo 'Tip: Open Artifacts → Execution Report for the HTML dashboard.'
+                echo 'Tip: Open Execution Report from the Jenkins left menu.'
             }
         }
 
@@ -117,9 +117,8 @@ pipeline {
                       allowEmptyResults: true
 
                 publishHTML([
-                    reportDir: 'target',
-                    reportFiles: 'execution-report.html',
-                    includes: 'execution-report.css',
+                    reportDir: 'target/execution-report',
+                    reportFiles: 'index.html',
                     reportName: 'Execution Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,

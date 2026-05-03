@@ -3,6 +3,7 @@ package com.jawwy.automation.reporting;
 import com.jawwy.automation.models.OrderContext;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class ReportWriter {
@@ -11,6 +12,9 @@ public class ReportWriter {
     private static final String TXT_PATH = TARGET_DIR + "/execution-report.txt";
     private static final String HTML_PATH = TARGET_DIR + "/execution-report.html";
     private static final String CSS_PATH = TARGET_DIR + "/execution-report.css";
+    private static final String HTML_REPORT_DIR = TARGET_DIR + "/execution-report";
+    private static final String HTML_REPORT_INDEX = HTML_REPORT_DIR + "/index.html";
+    private static final String HTML_REPORT_CSS = HTML_REPORT_DIR + "/execution-report.css";
 
     public static void write(ReportData data) throws Exception {
         Files.createDirectories(Paths.get(TARGET_DIR));
@@ -25,8 +29,16 @@ public class ReportWriter {
     }
 
     private static void writeHtml(ReportData data) throws Exception {
-        Files.writeString(Paths.get(HTML_PATH), HtmlReportBuilder.build(data), StandardCharsets.UTF_8);
-        Files.writeString(Paths.get(CSS_PATH), HtmlReportBuilder.css(), StandardCharsets.UTF_8);
+        String html = HtmlReportBuilder.build(data);
+        String css = HtmlReportBuilder.css();
+
+        Files.writeString(Paths.get(HTML_PATH), html, StandardCharsets.UTF_8);
+        Files.writeString(Paths.get(CSS_PATH), css, StandardCharsets.UTF_8);
+
+        Path reportDir = Paths.get(HTML_REPORT_DIR);
+        Files.createDirectories(reportDir);
+        Files.writeString(Paths.get(HTML_REPORT_INDEX), html, StandardCharsets.UTF_8);
+        Files.writeString(Paths.get(HTML_REPORT_CSS), css, StandardCharsets.UTF_8);
     }
 
     private static String buildTxt(ReportData data) {

@@ -23,6 +23,7 @@ public final class ReportCleaner {
                 workspaceRoot.resolve("allure-results"),
                 workspaceRoot.resolve("logs").resolve("archive"),
                 workspaceRoot.resolve("target").resolve("allure-results"),
+                workspaceRoot.resolve("target").resolve("execution-report"),
                 workspaceRoot.resolve("target").resolve("jenkins"),
                 workspaceRoot.resolve("target").resolve("surefire-reports")
         );
